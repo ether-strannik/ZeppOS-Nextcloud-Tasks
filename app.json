@@ -5,8 +5,8 @@
     "appName": "Tasks",
     "appType": "app",
     "version": {
-      "code": 9,
-      "name": "2.5"
+      "code": 11,
+      "name": "2.7"
     },
     "icon": "icon.png",
     "vender": "MelianMiko (mmk.pw)",
@@ -910,6 +910,80 @@
         {
           "name": "t-rex-2-2",
           "deviceSource": 419
+        }
+      ],
+      "module": {
+        "app-side": {
+          "path": "app-side/index"
+        },
+        "setting": {
+          "path": "setting/index"
+        },
+        "page": {
+          "pages": [
+            "page/amazfit/HomeScreen",
+            "page/amazfit/FontSizeSetupScreen",
+            "page/amazfit/ScreenBoardSetup",
+            "page/amazfit/SettingsScreen",
+            "page/amazfit/MarkdownReader",
+            "page/amazfit/AboutScreen",
+            "page/amazfit/NewNoteScreen",
+            "page/amazfit/TaskEditScreen",
+            "page/amazfit/DonatePage"
+          ]
+        }
+      }
+    },
+    "trex3pro48": {
+      "platforms": [
+        {
+          "name": "t-rex-10551552",
+          "deviceSource": 10551552
+        },
+        {
+          "name": "t-rex-10551553",
+          "deviceSource": 10551553
+        },
+        {
+          "name": "t-rex-10551555",
+          "deviceSource": 10551555
+        }
+      ],
+      "module": {
+        "app-side": {
+          "path": "app-side/index"
+        },
+        "setting": {
+          "path": "setting/index"
+        },
+        "page": {
+          "pages": [
+            "page/amazfit/HomeScreen",
+            "page/amazfit/FontSizeSetupScreen",
+            "page/amazfit/ScreenBoardSetup",
+            "page/amazfit/SettingsScreen",
+            "page/amazfit/MarkdownReader",
+            "page/amazfit/AboutScreen",
+            "page/amazfit/NewNoteScreen",
+            "page/amazfit/TaskEditScreen",
+            "page/amazfit/DonatePage"
+          ]
+        }
+      }
+    },
+    "trex3pro44": {
+      "platforms": [
+        {
+          "name": "t-rex-10682624",
+          "deviceSource": 10682624
+        },
+        {
+          "name": "t-rex-10682625",
+          "deviceSource": 10682625
+        },
+        {
+          "name": "t-rex-10682627",
+          "deviceSource": 10682627
         }
       ],
       "module": {
