@@ -56,8 +56,16 @@
 - **Offline change queue**: Task changes queued and synced when online
 - All CalDAV properties cached (status, priority, description, dueDate, location, geo, subtasks)
 
+#### Categories Support
+- **CATEGORIES property**: Tag tasks with multiple categories (e.g., Work, Personal, Urgent)
+- **Category picker**: Multi-select screen with checkboxes in task edit
+- **Add/Delete categories**: Create new categories or batch-delete selected ones
+- **HomeScreen display**: Optional [#tag] badge showing first category
+- **Settings toggle**: Show/hide category tags on task list
+
 #### Settings Toggles
 - Show reminder countdown
+- Show categories
 - Sort alphabetically
 - Pull down to refresh
 - Work offline
@@ -70,6 +78,8 @@
 
 ### Fixed
 - **Login save button**: Fixed "Save configuration" not working after credential validation
+- **iCalendar newline escaping**: Fixed 415 error when saving tasks with multi-line descriptions
+- **Clear debug log**: Now clears both watch and phone logs
 
 ### Changed
 - Revised task row display with notes indicator icon
@@ -128,6 +138,6 @@ Watch ←BLE→ Phone ←HTTPS→ Vercel Proxy ←CalDAV→ Nextcloud
 | RELATED-TO  | ✅ | Subtasks hierarchy |
 | GEO         | ✅ | GPS coordinates |
 | LOCATION    | ✅ | Location text |
-| CATEGORIES  | ❌ | Not implemented |
+| CATEGORIES  | ✅ | Multi-select tags with [#tag] display |
 | VALARM      | ❌ | Not implemented |
 | RRULE       | ❌ | Not implemented |
