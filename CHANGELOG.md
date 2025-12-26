@@ -86,6 +86,7 @@
 #### UX Improvements
 - **Double-tap to delete**: Task deletion requires confirmation (tap twice)
 - **Cached list sync**: Task lists now sync with server on refresh (adds new lists, removes deleted)
+- **Separate Task List picker**: Task lists moved to dedicated screen with Settings button at bottom
 
 ### Fixed
 - **Login save button**: Fixed "Save configuration" not working after credential validation

@@ -28,11 +28,9 @@ class TaskListPickerScreen extends ConfiguredListScreen {
       });
     } else {
       this.lists.forEach(({ id, title }) => {
-        const isSelected = id === config.get("cur_list_id");
         this.row({
           text: title,
-          icon: isSelected ? "icon_s/cb_true.png" : "icon_s/list.png",
-          color: isSelected ? 0x44FF44 : 0xFFFFFF,
+          icon: "icon_s/list.png",
           callback: () => this.selectList(id)
         });
       });
@@ -42,7 +40,7 @@ class TaskListPickerScreen extends ConfiguredListScreen {
     this.offset(16);
     this.row({
       text: t("Settings"),
-      icon: "icon_s/font_size.png",
+      icon: "icon_s/link.png",
       callback: () => this.openSettings()
     });
 
