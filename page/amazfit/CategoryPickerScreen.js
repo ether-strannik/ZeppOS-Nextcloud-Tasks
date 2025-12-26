@@ -59,12 +59,12 @@ class CategoryPickerScreen extends ConfiguredListScreen {
       callback: () => this.showAddCategoryEditor()
     });
 
-    // Delete category option (only show if there are categories)
+    // Delete selected categories (only show if there are categories)
     if (this.allCategories.length > 0) {
       this.row({
-        text: t("Delete category..."),
+        text: t("Delete selected"),
         icon: "icon_s/delete.png",
-        callback: () => this.enterDeleteMode()
+        callback: () => this.deleteSelected()
       });
     }
 
@@ -88,12 +88,6 @@ class CategoryPickerScreen extends ConfiguredListScreen {
   }
 
   toggleCategory(category) {
-    // If in delete mode, delete the category instead of toggling
-    if (this.deleteMode) {
-      this.deleteCategory(category);
-      return;
-    }
-
     const index = this.selected.indexOf(category);
     if (index >= 0) {
       // Remove from selection
@@ -119,37 +113,24 @@ class CategoryPickerScreen extends ConfiguredListScreen {
     hmUI.setLayerScrolling(false);
   }
 
-  enterDeleteMode() {
-    // Change all category rows to delete mode (red X icons)
-    this.deleteMode = true;
-    for (const item of this.categoryRows) {
-      item.row.iconView.setProperty(hmUI.prop.SRC, "icon_s/delete.png");
+  deleteSelected() {
+    if (this.selected.length === 0) {
+      hmUI.showToast({ text: t("Select categories first") });
+      return;
     }
-    hmUI.showToast({ text: t("Tap category to delete") });
-  }
 
-  deleteCategory(category) {
-    // Remove from predefined categories
+    // Remove selected categories from predefined list
     const userCategories = config.get("userCategories", []);
-    const index = userCategories.indexOf(category);
-    if (index >= 0) {
-      userCategories.splice(index, 1);
-      config.set("userCategories", userCategories);
-    }
+    const remaining = userCategories.filter(cat => !this.selected.includes(cat));
+    config.set("userCategories", remaining);
 
-    // Remove from current selection if selected
-    const selIndex = this.selected.indexOf(category);
-    if (selIndex >= 0) {
-      this.selected.splice(selIndex, 1);
-    }
-
-    // Reload page to show updated list
+    // Reload page with empty selection
     hmApp.reloadPage({
       url: "page/amazfit/CategoryPickerScreen",
       param: JSON.stringify({
         listId: this.listId,
         taskId: this.taskId,
-        currentCategories: this.selected
+        currentCategories: []
       })
     });
   }
