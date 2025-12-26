@@ -11,6 +11,9 @@ class SettingsScreen extends ConfiguredListScreen {
     this.mode = params.mode;
 
     this.wipeConfirm = 3;
+
+    // Load cached lists for "On Launch Open" picker
+    this.cachedLists = config.get("cachedLists", []);
   }
 
   build() {
@@ -80,6 +83,15 @@ class SettingsScreen extends ConfiguredListScreen {
         config.set("offlineMode", !config.get("offlineMode", false));
         hmApp.goBack();
       }
+    });
+
+    // On Launch Open setting
+    this.offset(16);
+    this.headline(t("On launch open:"));
+    this.launchListRow = this.row({
+      text: this.getLaunchListText(),
+      icon: "icon_s/list.png",
+      callback: () => this.cycleLaunchList()
     });
 
     // Advanced settings
@@ -186,14 +198,52 @@ class SettingsScreen extends ConfiguredListScreen {
         param: JSON.stringify({})
       })
     });
-    // this.row({
-    //   text: t("Help index"),
-    //   icon: "icon_s/help.png",
-    //   callback: () => hmApp.gotoPage({
-    //     url: `page/amazfit/MarkdownReader`,
-    //     param: "index.md"
-    //   })
-    // });
+  }
+
+  /**
+   * Get display text for current launch list setting
+   */
+  getLaunchListText() {
+    const mode = config.get("launchListMode", "last");
+    if (mode === "last") {
+      return t("Last viewed list");
+    }
+    const listId = config.get("launchListId", "");
+    const list = this.cachedLists.find(l => l.id === listId);
+    return list ? list.title : t("Last viewed list");
+  }
+
+  /**
+   * Cycle through launch list options: Last viewed → List1 → List2 → ...
+   */
+  cycleLaunchList() {
+    const currentMode = config.get("launchListMode", "last");
+    const currentListId = config.get("launchListId", "");
+
+    if (currentMode === "last") {
+      // Switch to first specific list
+      if (this.cachedLists.length > 0) {
+        config.set("launchListMode", "specific");
+        config.set("launchListId", this.cachedLists[0].id);
+      }
+    } else {
+      // Find current list index and cycle to next
+      const currentIndex = this.cachedLists.findIndex(l => l.id === currentListId);
+      const nextIndex = currentIndex + 1;
+
+      if (nextIndex >= this.cachedLists.length) {
+        // Wrap back to "Last viewed"
+        config.set("launchListMode", "last");
+        config.set("launchListId", "");
+      } else {
+        config.set("launchListId", this.cachedLists[nextIndex].id);
+      }
+    }
+
+    // Update UI
+    if (this.launchListRow) {
+      this.launchListRow.textView.setProperty(hmUI.prop.TEXT, this.getLaunchListText());
+    }
   }
 }
 

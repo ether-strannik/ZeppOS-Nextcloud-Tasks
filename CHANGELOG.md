@@ -77,6 +77,7 @@
 - Pull down to refresh
 - Work offline
 - Show completed tasks
+- **On launch open**: Choose "Last viewed list" or a specific list to open on app start
 
 #### Multi-User Proxy
 - **Shared proxy server**: One Vercel deployment works for all users

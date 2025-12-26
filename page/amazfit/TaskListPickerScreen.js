@@ -50,7 +50,11 @@ class TaskListPickerScreen extends ConfiguredListScreen {
 
   selectList(id) {
     config.set("cur_list_id", id);
-    hmApp.goBack();
+    // Use reloadPage with flag so HomeScreen knows this is a manual selection
+    hmApp.reloadPage({
+      url: "page/amazfit/HomeScreen",
+      param: JSON.stringify({ fromListPicker: true })
+    });
   }
 
   openSettings() {

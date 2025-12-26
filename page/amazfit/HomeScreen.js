@@ -34,7 +34,18 @@ class HomeScreen extends ConfiguredListScreen {
 
       cachedHandler.getTaskLists().then((lists) => {
         this.taskLists = lists;
-        const selectedListId = config.get("cur_list_id");
+        let selectedListId = config.get("cur_list_id");
+
+        // On initial launch, check launch list setting
+        const isInitialLaunch = !this.params.forceOnline && !this.params.returnToListPicker && !this.params.fromListPicker;
+        if (isInitialLaunch) {
+          const launchMode = config.get("launchListMode", "last");
+          if (launchMode === "specific") {
+            const launchListId = config.get("launchListId", "");
+            if (launchListId) selectedListId = launchListId;
+          }
+        }
+
         this.currentList = lists.find(l => l.id === selectedListId) || lists[0];
 
         if (!this.currentList) {
@@ -246,9 +257,23 @@ class HomeScreen extends ConfiguredListScreen {
 
   /**
    * Find saved user list
+   * On initial launch, respects "On Launch Open" setting
    */
   findCurrentList() {
-    const selectedList = config.get("cur_list_id");
+    let selectedList = config.get("cur_list_id");
+
+    // On initial app launch (no special params), check launch list setting
+    const isInitialLaunch = !this.params.forceOnline && !this.params.returnToListPicker && !this.params.fromListPicker;
+    if (isInitialLaunch) {
+      const launchMode = config.get("launchListMode", "last");
+      if (launchMode === "specific") {
+        const launchListId = config.get("launchListId", "");
+        if (launchListId) {
+          selectedList = launchListId;
+        }
+      }
+    }
+
     for (const entry of this.taskLists) {
       // noinspection JSUnresolvedReference
       if (entry.id === selectedList) {
@@ -675,7 +700,18 @@ class HomeScreen extends ConfiguredListScreen {
 
       return cachedHandler.getTaskLists().then((lists) => {
         this.taskLists = lists;
-        const selectedListId = config.get("cur_list_id");
+        let selectedListId = config.get("cur_list_id");
+
+        // On initial launch, check launch list setting
+        const isInitialLaunch = !this.params.forceOnline && !this.params.returnToListPicker && !this.params.fromListPicker;
+        if (isInitialLaunch) {
+          const launchMode = config.get("launchListMode", "last");
+          if (launchMode === "specific") {
+            const launchListId = config.get("launchListId", "");
+            if (launchListId) selectedListId = launchListId;
+          }
+        }
+
         this.currentList = lists.find(l => l.id === selectedListId) || lists[0];
 
         if (!this.currentList) {
