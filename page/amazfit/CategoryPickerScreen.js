@@ -59,6 +59,15 @@ class CategoryPickerScreen extends ConfiguredListScreen {
       callback: () => this.showAddCategoryEditor()
     });
 
+    // Delete category option (only show if there are categories)
+    if (this.allCategories.length > 0) {
+      this.row({
+        text: t("Delete category..."),
+        icon: "icon_s/delete.png",
+        callback: () => this.enterDeleteMode()
+      });
+    }
+
     // Save button
     this.offset(16);
     this.row({
@@ -79,6 +88,12 @@ class CategoryPickerScreen extends ConfiguredListScreen {
   }
 
   toggleCategory(category) {
+    // If in delete mode, delete the category instead of toggling
+    if (this.deleteMode) {
+      this.deleteCategory(category);
+      return;
+    }
+
     const index = this.selected.indexOf(category);
     if (index >= 0) {
       // Remove from selection
@@ -102,6 +117,41 @@ class CategoryPickerScreen extends ConfiguredListScreen {
     this.addCategoryBoard.visible = true;
     hmApp.setLayerY(0);
     hmUI.setLayerScrolling(false);
+  }
+
+  enterDeleteMode() {
+    // Change all category rows to delete mode (red X icons)
+    this.deleteMode = true;
+    for (const item of this.categoryRows) {
+      item.row.iconView.setProperty(hmUI.prop.SRC, "icon_s/delete.png");
+    }
+    hmUI.showToast({ text: t("Tap category to delete") });
+  }
+
+  deleteCategory(category) {
+    // Remove from predefined categories
+    const userCategories = config.get("userCategories", []);
+    const index = userCategories.indexOf(category);
+    if (index >= 0) {
+      userCategories.splice(index, 1);
+      config.set("userCategories", userCategories);
+    }
+
+    // Remove from current selection if selected
+    const selIndex = this.selected.indexOf(category);
+    if (selIndex >= 0) {
+      this.selected.splice(selIndex, 1);
+    }
+
+    // Reload page to show updated list
+    hmApp.reloadPage({
+      url: "page/amazfit/CategoryPickerScreen",
+      param: JSON.stringify({
+        listId: this.listId,
+        taskId: this.taskId,
+        currentCategories: this.selected
+      })
+    });
   }
 
   doAddCategory(name) {
