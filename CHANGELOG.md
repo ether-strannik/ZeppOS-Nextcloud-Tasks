@@ -63,6 +63,14 @@
 - Work offline
 - Show completed tasks
 
+#### Multi-User Proxy
+- **Shared proxy server**: One Vercel deployment works for all users
+- **X-Target-Host header**: User's Nextcloud URL passed dynamically
+- **Configurable proxy URL**: Advanced users can host their own proxy
+
+### Fixed
+- **Login save button**: Fixed "Save configuration" not working after credential validation
+
 ### Changed
 - Revised task row display with notes indicator icon
 - Settings screen reorganized with Debug section
@@ -74,6 +82,7 @@
 - **TickTick support**: Removed TickTickHandler, TickTickAuth, and related UI
 - **Translation support**: Removed all 20 language translations (app is now English-only)
 - **Donate functionality**: Removed donate button from About screen
+- **Server config info box**: Removed outdated wiki link from login (no longer needed with multi-user proxy)
 - App now exclusively supports Nextcloud/CalDAV
 
 ### Rebranding
