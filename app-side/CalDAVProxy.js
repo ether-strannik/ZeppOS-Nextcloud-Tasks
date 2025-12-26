@@ -2,7 +2,7 @@ import {pjXML} from "../lib/pjxml";
 import {generateUUID} from "./UUID";
 
 // Shared CalDAV proxy URL - handles HTTP method translation for all users
-const PROXY_URL = "https://caldav-proxy.vercel.app";
+const PROXY_URL = "https://caldav-proxy-emn8.vercel.app";
 
 const PAYLOAD_GET_CALENDARS = "<x0:propfind xmlns:x0=\"DAV:\"><x0:prop><x0:displayname /><x1:supported-calendar-component-set xmlns:x1=\"urn:ietf:params:xml:ns:caldav\" /></x0:prop></x0:propfind>\n";
 // Get ALL tasks (no completion filter) - let client filter
