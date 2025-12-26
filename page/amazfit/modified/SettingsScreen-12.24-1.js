@@ -1,5 +1,4 @@
 import { ConfiguredListScreen } from "../ConfiguredListScreen";
-import { readLog, clearLog } from "../Utils";
 
 const { config, t, tasksProvider } = getApp()._options.globalData
 
@@ -12,20 +11,14 @@ class SettingsScreen extends ConfiguredListScreen {
     this.lists = params.lists;
     this.fromReplace = params.fromReplace;
 
-    // Fallback to cached lists if none provided
-    if ((!this.lists || this.lists.length === 0) && tasksProvider.hasCachedLists()) {
-      const cachedLists = config.get("cachedLists", []);
-      this.lists = cachedLists.map(l => ({ id: l.id, title: l.title }));
-    }
-
     this.wipeConfirm = 3;
   }
 
   build() {
     if(this.mode !== "setup") this.buildHelpItems();
 
-    // Lists picker - show if we have lists (online or cached)
-    if(this.lists && this.lists.length > 0) {
+    // Lists picker
+    if(this.mode !== "cached") {
       this.headline(t('Task lists:'));
       this.lists.forEach(({ id, title }) => this.row({
         text: title,
@@ -69,30 +62,6 @@ class SettingsScreen extends ConfiguredListScreen {
           hmApp.goBack();
         }
       });
-      this.row({
-        text: t("Show reminder countdown"),
-        icon: `icon_s/cb_${config.get("showCountdown", false)}.png`,
-        callback: () => {
-          config.set("showCountdown", !config.get("showCountdown", false));
-          hmApp.goBack();
-        }
-      });
-      this.row({
-        text: t("Pull down to refresh"),
-        icon: `icon_s/cb_${config.get("pullToRefresh", false)}.png`,
-        callback: () => {
-          config.set("pullToRefresh", !config.get("pullToRefresh", false));
-          hmApp.goBack();
-        }
-      });
-      this.row({
-        text: t("Work offline"),
-        icon: `icon_s/cb_${config.get("offlineMode", false)}.png`,
-        callback: () => {
-          config.set("offlineMode", !config.get("offlineMode", false));
-          hmApp.goBack();
-        }
-      });
     }
 
     // Advanced settings
@@ -114,23 +83,6 @@ class SettingsScreen extends ConfiguredListScreen {
         text: t("Option above didn't delete any data from your Google account"),
         fontSize: this.fontSize - 2,
         color: 0x999999
-      });
-
-      // Debug section
-      this.offset(16);
-      this.headline(t("Debug:"));
-      this.row({
-        text: t("View debug log"),
-        icon: "icon_s/edit.png",
-        callback: () => this.showDebugLog()
-      });
-      this.row({
-        text: t("Clear debug log"),
-        icon: "icon_s/delete.png",
-        callback: () => {
-          clearLog();
-          hmUI.showToast({ text: t("Log cleared") });
-        }
       });
     }
 
@@ -166,15 +118,6 @@ class SettingsScreen extends ConfiguredListScreen {
     }
     config.set("tasks", output);
     hmApp.goBack();
-  }
-
-  showDebugLog() {
-    const logContent = readLog();
-    // Navigate to About screen with log content as param
-    hmApp.gotoPage({
-      url: `page/amazfit/AboutScreen`,
-      param: JSON.stringify({ debugLog: logContent })
-    });
   }
 
   buildHelpItems() {

@@ -3,9 +3,31 @@ export class CachedTask {
         this.id = data.id;
         this.title = data.title;
         this.completed = data.completed;
+        this.dueDate = data.dueDate ? new Date(data.dueDate) : null;
+        this.location = data.location || "";
+        this.geo = data.geo || null;
 
         this.config = config;
         this.withLog = withLog;
+    }
+
+    /**
+     * Get time until due date (e.g., "3.5h", "2d", "-1d" for overdue)
+     * Returns null if no due date
+     */
+    getReminderCountdown() {
+        if (!this.dueDate) return null;
+
+        const diff = this.dueDate.getTime() - Date.now();
+        const hours = diff / (1000 * 60 * 60);
+
+        if (Math.abs(hours) < 24) {
+            const h = hours.toFixed(1);
+            return `${h}h`;
+        } else {
+            const days = Math.round(hours / 24);
+            return `${days}d`;
+        }
     }
 
     _getSelfIndex(tasks) {

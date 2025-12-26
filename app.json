@@ -32,7 +32,7 @@
       "appName": "Aufgaben"
     }
   },
-  "permissions": [],
+  "permissions": ["device:os.geolocation"],
   "runtime": {
     "apiVersion": {
       "compatible": "1.0.0",

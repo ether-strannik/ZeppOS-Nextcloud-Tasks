@@ -1,8 +1,9 @@
-import {ICON_SIZE_MEDIUM, SCREEN_MARGIN_Y, SCREEN_WIDTH} from "../../lib/mmk/UiParams";
+import {ICON_SIZE_MEDIUM, ICON_SIZE_SMALL, SCREEN_MARGIN_Y, SCREEN_WIDTH, WIDGET_WIDTH} from "../../lib/mmk/UiParams";
 
 import {createSpinner, getOfflineInfo} from "../Utils";
 import {ConfiguredListScreen} from "../ConfiguredListScreen";
 import {TouchEventManager} from "../../lib/mmk/TouchEventManager";
+import {AppGesture} from "../../lib/mmk/AppGesture";
 
 const {t, config, tasksProvider, messageBuilder} = getApp()._options.globalData
 
@@ -22,23 +23,60 @@ class HomeScreen extends ConfiguredListScreen {
   }
 
   init() {
-    // Loading spinner
-    this.hideSpinner = createSpinner();
+    const offlineMode = config.get("offlineMode", false);
+    const forceOnline = this.params.forceOnline;
+    const hasCachedLists = tasksProvider.hasCachedLists();
 
+    // Manual offline mode - use cache only, no sync (unless forced)
+    if (offlineMode && hasCachedLists && !forceOnline) {
+      this.cachedMode = true;
+      const cachedHandler = tasksProvider.getCachedHandler();
+
+      cachedHandler.getTaskLists().then((lists) => {
+        this.taskLists = lists;
+        const selectedListId = config.get("cur_list_id");
+        this.currentList = lists.find(l => l.id === selectedListId) || lists[0];
+
+        if (!this.currentList) {
+          this.showOfflineOptions("No cached lists");
+          return;
+        }
+
+        return this.currentList.getTasks(config.get("withComplete", false));
+      }).then((taskData) => {
+        if (!taskData) return;
+
+        this.taskData = taskData;
+        this.taskData.tasks = this.sortTasks(this.taskData.tasks);
+        this.build();
+      }).catch((error) => {
+        console.log("Cache load failed:", error);
+        this.showOfflineOptions(error instanceof Error ? error.message : error);
+      });
+    } else {
+      // Online mode - fetch from server
+      this.hideSpinner = createSpinner();
+      this.onlineInit();
+    }
+  }
+
+  /**
+   * Online init - fetch from server and cache
+   */
+  onlineInit() {
     messageBuilder.request({
       package: "tasks_login",
       action: "notify_offline",
       value: config.get("forever_offline", false),
-    }, {})
+    }, {});
 
-    // Load task lists
     tasksProvider.init().then(() => {
       return tasksProvider.getTaskLists();
     }).then((lists) => {
       this.taskLists = lists;
 
       if(config.get("forever_offline")) {
-        this.currentList = this.taskLists[0]
+        this.currentList = this.taskLists[0];
       } else {
         this.currentList = this.findCurrentList();
         if(!this.currentList) return this.openSettings("setup", true);
@@ -49,18 +87,88 @@ class HomeScreen extends ConfiguredListScreen {
       return this.currentList.getTasks(config.get("withComplete", false), this.params.page);
     }).then((taskData) => {
       this.taskData = taskData;
+      this.taskData.tasks = this.sortTasks(this.taskData.tasks);
 
-      // If not offline and not on second pages, create cache for offline work
-      if(!config.get("forever_offline") && !this.params.page)
-        tasksProvider.createCacheData(this.currentList.id, this.taskData.tasks);
+      // Fetch checklist items for all tasks
+      const checklistPromises = this.taskData.tasks.map((task) => {
+        if (typeof task.getChecklistItems === 'function') {
+          return task.getChecklistItems().then((items) => {
+            task.checklistItems = items;
+          }).catch(() => {
+            task.checklistItems = [];
+          });
+        } else {
+          task.checklistItems = [];
+          return Promise.resolve();
+        }
+      });
 
-      // Build UI
+      return Promise.all(checklistPromises);
+    }).then(() => {
+      // Cache for offline use
+      if (!config.get("forever_offline") && !this.params.page) {
+        this.cacheCurrentData();
+      }
+
+      // If this was a forced sync while in offline mode, go back to offline
+      if (this.params.forceOnline && config.get("offlineMode", false)) {
+        this.hideSpinner();
+        hmUI.showToast({ text: t("Sync complete") });
+        hmApp.reloadPage({
+          url: "page/amazfit/HomeScreen",
+          param: JSON.stringify({})
+        });
+        return;
+      }
+
+      this.cachedMode = false;
       this.hideSpinner();
       this.build();
     }).catch((error) => {
       this.onInitFailure(error instanceof Error ? error.message : error);
       this.hideSpinner();
-    })
+    });
+  }
+
+  /**
+   * Cache current list data after successful online fetch
+   */
+  cacheCurrentData() {
+    // Cache to legacy single-list structure
+    tasksProvider.createCacheData(this.currentList.id, this.taskData.tasks);
+
+    // Also cache to multi-list structure
+    const cachedLists = config.get("cachedLists", []);
+    const listIndex = cachedLists.findIndex(l => l.id === this.currentList.id);
+
+    // Helper to cache a task (including subtasks recursively)
+    const cacheTask = (task) => ({
+      id: task.id,
+      title: task.title,
+      completed: task.completed,
+      important: task.important || false,
+      checklistItems: task.checklistItems || [],
+      uid: task.uid || null,
+      parentId: task.parentId || null,
+      priority: task.priority || 0,
+      status: task.status || "NEEDS-ACTION",
+      inProgress: task.inProgress || false,
+      dueDate: task.dueDate ? task.dueDate.getTime() : null,  // Store as timestamp
+      subtasks: (task.subtasks || []).map(cacheTask)
+    });
+
+    const listData = {
+      id: this.currentList.id,
+      title: this.currentList.title,
+      tasks: this.taskData.tasks.map(cacheTask)
+    };
+
+    if (listIndex >= 0) {
+      cachedLists[listIndex] = listData;
+    } else {
+      cachedLists.push(listData);
+    }
+    config.update({ cachedLists: cachedLists });
   }
 
   /**
@@ -89,6 +197,19 @@ class HomeScreen extends ConfiguredListScreen {
         list: this.currentList.id
       })
     })
+  }
+
+  /**
+   * Sort tasks based on user preference
+   */
+  sortTasks(tasks) {
+    const sortMode = config.get("sortMode", "none");
+    if (sortMode === "alpha") {
+      return tasks.slice().sort((a, b) =>
+        (a.title || "").toLowerCase().localeCompare((b.title || "").toLowerCase())
+      );
+    }
+    return tasks;
   }
 
   /**
@@ -172,11 +293,28 @@ class HomeScreen extends ConfiguredListScreen {
    * UI: Task card widget
    */
   taskCard(data) {
-    let {title, completed} = data;
+    let {title, completed, important, inProgress, status} = data;
 
     if(!title) title = "";
+    let displayTitle = title;
+
+    // Add reminder countdown if enabled and available
+    if (config.get("showCountdown", false) && typeof data.getReminderCountdown === 'function') {
+      const countdown = data.getReminderCountdown();
+      if (countdown) {
+        displayTitle += ` (${countdown})`;
+      }
+    }
+
+    // Determine if task supports status (CalDAV)
+    const supportsStatus = typeof data.setStatus === 'function';
+
+    // Double-tap detection
+    let lastTapTime = 0;
+    const DOUBLE_TAP_THRESHOLD = 400; // ms
+
     const row = this.row({
-      text: title,
+      text: displayTitle,
       card: {
         hiddenButton: t("Edit"),
         hiddenButtonCallback: () => {
@@ -190,42 +328,322 @@ class HomeScreen extends ConfiguredListScreen {
         }
       },
       callback: () => {
-        completed = !completed;
+        const now = Date.now();
+        const isDoubleTap = (now - lastTapTime) < DOUBLE_TAP_THRESHOLD;
+        lastTapTime = now;
 
-        try {
-          data.setCompleted(completed)
-        } catch(e) {
-          hmUI.showToast({ text: e.message });
-          return;
+        if (supportsStatus && isDoubleTap) {
+          // Double tap: set to IN-PROCESS
+          try {
+            data.setStatus("IN-PROCESS");
+          } catch(e) {
+            hmUI.showToast({ text: e.message });
+            return;
+          }
+          status = "IN-PROCESS";
+          completed = false;
+          inProgress = true;
+        } else {
+          // Single tap: toggle completed
+          completed = !completed;
+          try {
+            if (supportsStatus) {
+              data.setStatus(completed ? "COMPLETED" : "NEEDS-ACTION");
+              status = completed ? "COMPLETED" : "NEEDS-ACTION";
+              inProgress = false;
+            } else {
+              data.setCompleted(completed);
+            }
+          } catch(e) {
+            hmUI.showToast({ text: e.message });
+            return;
+          }
         }
 
-        updateComplete();
+        updateStatus();
       }
     });
 
-    const updateComplete = () => {
-      row.textView.setProperty(hmUI.prop.COLOR, completed ? 0x999999 : 0xFFFFFF);
-      row.iconView.setProperty(hmUI.prop.SRC, completed ? 'icon_s/cb_true.png' : 'icon_s/cb_false.png');
+    // Get priority color for checkbox border
+    const getPriorityColor = () => {
+      if (typeof data.getPriorityColor === 'function') {
+        return data.getPriorityColor();
+      } else if (important) {
+        return 0xFFD700; // Microsoft important - gold
+      }
+      return null; // No priority color
+    };
+
+    // Add colored ring around checkbox if task has priority
+    let priorityRing = null;
+    const priorityColor = getPriorityColor();
+    if (priorityColor && priorityColor !== 0xFFFFFF) {
+      const ringSize = ICON_SIZE_SMALL + 4;
+      const ringX = Math.floor(ICON_SIZE_SMALL / 2) - 2;
+      const ringY = Math.floor((row.viewHeight - ICON_SIZE_SMALL) / 2) - 2;
+
+      priorityRing = row.group.createWidget(hmUI.widget.ARC, {
+        x: ringX,
+        y: ringY,
+        w: ringSize,
+        h: ringSize,
+        start_angle: 0,
+        end_angle: 360,
+        color: priorityColor,
+        line_width: 2
+      });
     }
 
-    updateComplete();
+    // Add notes indicator icon on right side if task has description
+    if (data.description && data.description.trim().length > 0) {
+      const iconSize = ICON_SIZE_SMALL;
+      const iconX = WIDGET_WIDTH - iconSize - 8;  // Right side of row
+      const iconY = Math.floor((row.viewHeight - iconSize) / 2);
+
+      row.group.createWidget(hmUI.widget.IMG, {
+        x: iconX,
+        y: iconY,
+        w: iconSize,
+        h: iconSize,
+        src: 'icon_s/edit.png'
+      });
+    }
+
+    // Get checkbox icon based on status
+    const getCheckboxIcon = () => {
+      if (completed) return 'icon_s/cb_true.png';
+      if (inProgress) return 'icon_s/cb_inprogress.png';
+      return 'icon_s/cb_false.png';
+    };
+
+    const updateStatus = () => {
+      row.textView.setProperty(hmUI.prop.COLOR, completed ? 0x999999 : 0xFFFFFF);
+      row.iconView.setProperty(hmUI.prop.SRC, getCheckboxIcon());
+
+      // Hide/dim priority ring when completed
+      if (priorityRing) {
+        priorityRing.setProperty(hmUI.prop.COLOR, completed ? 0x666666 : priorityColor);
+      }
+    }
+
+    updateStatus();
+
+    // Display steps (checklist items) under the task - Microsoft
+    if (data.checklistItems && data.checklistItems.length > 0) {
+      data.checklistItems.forEach((item) => {
+        this.stepRow(data, item);
+      });
+    }
+
+    // Display subtasks under the task - CalDAV/Nextcloud
+    if (data.subtasks && data.subtasks.length > 0) {
+      data.subtasks.forEach((subtask) => {
+        this.subtaskRow(subtask);
+      });
+    }
+  }
+
+  /**
+   * UI: Step (checklist item) row - indented under task
+   */
+  stepRow(task, item) {
+    let isChecked = item.isChecked;
+
+    const getPrefix = () => isChecked ? "    ✓ " : "    ○ ";
+
+    const row = this.row({
+      text: getPrefix() + item.displayName,
+      callback: () => {
+        if (typeof task.setChecklistItemChecked === 'function') {
+          isChecked = !isChecked;
+
+          // Update UI immediately
+          row.textView.setProperty(hmUI.prop.TEXT, getPrefix() + item.displayName);
+          row.textView.setProperty(hmUI.prop.COLOR, isChecked ? 0x666666 : 0xAAAAAA);
+
+          // Fire API call (don't wait for it)
+          task.setChecklistItemChecked(item.id, isChecked).catch(() => {
+            hmUI.showToast({ text: t("Failed to update") });
+          });
+        }
+      }
+    });
+
+    // Style: gray color for steps
+    row.textView.setProperty(hmUI.prop.COLOR, isChecked ? 0x666666 : 0xAAAAAA);
+  }
+
+  /**
+   * UI: Subtask row - indented under parent task (CalDAV/Nextcloud)
+   */
+  subtaskRow(subtask) {
+    let {completed, inProgress} = subtask;
+    const supportsStatus = typeof subtask.setStatus === 'function';
+
+    // Get checkbox icon based on status
+    const getCheckboxIcon = () => {
+      if (completed) return 'icon_s/cb_true.png';
+      if (inProgress) return 'icon_s/cb_inprogress.png';
+      return 'icon_s/cb_false.png';
+    };
+
+    // Double-tap detection
+    let lastTapTime = 0;
+    const DOUBLE_TAP_THRESHOLD = 400; // ms
+
+    // Indentation for subtask
+    const indent = ICON_SIZE_SMALL;
+
+    const row = this.row({
+      text: "      " + subtask.title,  // Text indent via spaces
+      icon: getCheckboxIcon(),
+      card: {
+        hiddenButton: t("Edit"),
+        hiddenButtonCallback: () => {
+          hmApp.gotoPage({
+            url: `page/amazfit/TaskEditScreen`,
+            param: JSON.stringify({
+              list_id: subtask.list ? subtask.list.id : this.currentList.id,
+              task_id: subtask.id
+            })
+          })
+        }
+      },
+      callback: () => {
+        const now = Date.now();
+        const isDoubleTap = (now - lastTapTime) < DOUBLE_TAP_THRESHOLD;
+        lastTapTime = now;
+
+        if (supportsStatus && isDoubleTap) {
+          // Double tap: set to IN-PROCESS
+          subtask.setStatus("IN-PROCESS").catch(() => {
+            hmUI.showToast({ text: t("Failed to update") });
+          });
+          completed = false;
+          inProgress = true;
+        } else {
+          // Single tap: toggle completed
+          completed = !completed;
+          if (supportsStatus) {
+            subtask.setStatus(completed ? "COMPLETED" : "NEEDS-ACTION").catch(() => {
+              hmUI.showToast({ text: t("Failed to update") });
+            });
+            inProgress = false;
+          } else {
+            subtask.setCompleted(completed).catch(() => {
+              hmUI.showToast({ text: t("Failed to update") });
+            });
+          }
+        }
+
+        // Update UI immediately
+        row.textView.setProperty(hmUI.prop.COLOR, completed ? 0x666666 : 0xAAAAAA);
+        row.iconView.setProperty(hmUI.prop.SRC, getCheckboxIcon());
+
+        // Update priority ring
+        if (priorityRing) {
+          priorityRing.setProperty(hmUI.prop.COLOR, completed ? 0x666666 : priorityColor);
+        }
+      }
+    });
+
+    // Move icon to indented position
+    row.iconView.setProperty(hmUI.prop.X, Math.floor(ICON_SIZE_SMALL / 2) + indent);
+
+    // Get priority color
+    let priorityColor = null;
+    if (typeof subtask.getPriorityColor === 'function') {
+      priorityColor = subtask.getPriorityColor();
+      if (priorityColor === 0xFFFFFF) priorityColor = null;
+    }
+
+    // Add colored ring around checkbox if priority set
+    let priorityRing = null;
+    if (priorityColor) {
+      const ringSize = ICON_SIZE_SMALL + 4;
+      const ringX = Math.floor(ICON_SIZE_SMALL / 2) + indent - 2;
+      const ringY = Math.floor((row.viewHeight - ICON_SIZE_SMALL) / 2) - 2;
+
+      priorityRing = row.group.createWidget(hmUI.widget.ARC, {
+        x: ringX,
+        y: ringY,
+        w: ringSize,
+        h: ringSize,
+        start_angle: 0,
+        end_angle: 360,
+        color: completed ? 0x666666 : priorityColor,
+        line_width: 2
+      });
+    }
+
+    // Add notes indicator icon on right side if subtask has description
+    if (subtask.description && subtask.description.trim().length > 0) {
+      const iconSize = ICON_SIZE_SMALL;
+      const iconX = WIDGET_WIDTH - iconSize - 8;  // Right side of row
+      const iconY = Math.floor((row.viewHeight - iconSize) / 2);
+
+      row.group.createWidget(hmUI.widget.IMG, {
+        x: iconX,
+        y: iconY,
+        w: iconSize,
+        h: iconSize,
+        src: 'icon_s/edit.png'
+      });
+    }
+
+    // Style: gray for subtasks
+    row.textView.setProperty(hmUI.prop.COLOR, completed ? 0x666666 : 0xAAAAAA);
   }
 
   /**
    * This function will handle init error
    */
   onInitFailure(message) {
-    if(config.get("tasks", false) && !config.get("forever_offline", false)) {
+    // Try new multi-list cache first
+    if (tasksProvider.hasCachedLists() && !config.get("forever_offline", false)) {
+      this.cachedMode = true;
+      const cachedHandler = tasksProvider.getCachedHandler();
+
+      return cachedHandler.getTaskLists().then((lists) => {
+        this.taskLists = lists;
+        const selectedListId = config.get("cur_list_id");
+        this.currentList = lists.find(l => l.id === selectedListId) || lists[0];
+
+        if (!this.currentList) {
+          this.showOfflineOptions(message);
+          return;
+        }
+
+        return this.currentList.getTasks(config.get("withComplete", false));
+      }).then((taskData) => {
+        if (!taskData) return;
+
+        this.taskData = taskData;
+        this.taskData.tasks = this.sortTasks(this.taskData.tasks);
+        this.build(message);
+      }).catch(() => {
+        this.showOfflineOptions(message);
+      });
+    }
+
+    // Fall back to legacy single-list cache
+    if (config.get("tasks", false) && !config.get("forever_offline", false)) {
       this.cachedMode = true;
       this.currentList = tasksProvider.getCachedTasksList();
-      console.log(JSON.stringify(config.get("log")))
       return this.currentList.getTasks().then((tasks) => {
         this.taskData = tasks;
+        this.taskData.tasks = this.sortTasks(this.taskData.tasks);
         this.build(message);
       });
     }
 
-    // Show error and option to work without sync
+    this.showOfflineOptions(message);
+  }
+
+  /**
+   * Show offline/error options when no cache available
+   */
+  showOfflineOptions(message) {
     this.row({
       text: getOfflineInfo(message),
       color: 0xFF9900,
@@ -235,16 +653,6 @@ class HomeScreen extends ConfiguredListScreen {
       }
     });
 
-    // this.row({
-    //   text: t("How-to login?"),
-    //   icon: "icon_s/help.png",
-    //   callback: () => {
-    //     hmApp.gotoPage({
-    //       url: `page/amazfit/MarkdownReader`,
-    //       param: "help_google.md"
-    //     })
-    //   }
-    // });
     this.row({
       text: t("Use application without sync"),
       icon: "icon_s/mode_offline.png",
@@ -267,6 +675,28 @@ Page({
 
     hmApp.setScreenKeep(true);
     hmSetting.setBrightScreen(15);
+
+    // Pull-to-refresh: double swipe down to sync (if enabled)
+    if (config.get("pullToRefresh", false)) {
+      let lastSwipe = 0;
+      AppGesture.init();
+      AppGesture.on("down", () => {
+        const now = Date.now();
+        if (now - lastSwipe < 1000) {
+          // Second swipe within 1 second - trigger sync
+          hmUI.showToast({ text: t("Syncing...") });
+          hmApp.reloadPage({
+            url: "page/amazfit/HomeScreen",
+            param: JSON.stringify({ forceOnline: true })
+          });
+        } else {
+          // First swipe - show hint
+          hmUI.showToast({ text: t("Swipe again to sync") });
+          lastSwipe = now;
+        }
+        return true;
+      });
+    }
 
     try {
       new HomeScreen(params).init();

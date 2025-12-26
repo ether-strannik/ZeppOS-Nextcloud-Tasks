@@ -1,11 +1,90 @@
-import { 
-  ICON_SIZE_MEDIUM, 
-  IS_LOW_RAM_DEVICE, 
-  SCREEN_WIDTH, 
-  SCREEN_HEIGHT 
+import {
+  ICON_SIZE_MEDIUM,
+  IS_LOW_RAM_DEVICE,
+  SCREEN_WIDTH,
+  SCREEN_HEIGHT
 } from "../lib/mmk/UiParams";
 
 const { messageBuilder, t } = getApp()._options.globalData
+
+// File-based logger for debugging
+const LOG_FILE = "debug.log";
+let logBuffer = [];
+
+export function log(...args) {
+  const msg = args.map(a => {
+    if (typeof a === 'object') {
+      try { return JSON.stringify(a); } catch(e) { return String(a); }
+    }
+    return String(a);
+  }).join(' ');
+
+  const timestamp = new Date().toISOString().substr(11, 8);
+  const line = `[${timestamp}] ${msg}\n`;
+
+  // Also log to console
+  console.log(msg);
+
+  // Buffer logs
+  logBuffer.push(line);
+
+  // Write to file periodically (every 5 logs or on flush)
+  if (logBuffer.length >= 5) {
+    flushLog();
+  }
+}
+
+export function flushLog() {
+  if (logBuffer.length === 0) return;
+
+  try {
+    const content = logBuffer.join('');
+    logBuffer = [];
+
+    // Append to file
+    const file = hmFS.open_asset(LOG_FILE, hmFS.O_WRONLY | hmFS.O_APPEND | hmFS.O_CREAT);
+    if (file) {
+      const buffer = new ArrayBuffer(content.length);
+      const view = new Uint8Array(buffer);
+      for (let i = 0; i < content.length; i++) {
+        view[i] = content.charCodeAt(i);
+      }
+      hmFS.write(file, buffer, 0, buffer.byteLength);
+      hmFS.close(file);
+    }
+  } catch(e) {
+    console.log("Log write error:", e);
+  }
+}
+
+export function readLog() {
+  try {
+    const [stat, err] = hmFS.stat_asset(LOG_FILE);
+    if (err || !stat) return "(no log file)";
+
+    const file = hmFS.open_asset(LOG_FILE, hmFS.O_RDONLY);
+    if (!file) return "(cannot open log)";
+
+    const buffer = new ArrayBuffer(Math.min(stat.size, 4096));
+    hmFS.read(file, buffer, 0, buffer.byteLength);
+    hmFS.close(file);
+
+    const view = new Uint8Array(buffer);
+    let str = "";
+    for (let i = 0; i < view.length && view[i] !== 0; i++) {
+      str += String.fromCharCode(view[i]);
+    }
+    return str;
+  } catch(e) {
+    return "Error: " + e;
+  }
+}
+
+export function clearLog() {
+  try {
+    hmFS.remove_asset(LOG_FILE);
+  } catch(e) {}
+}
 
 export function request(data, timeout = 10000) {
   if(!hmBle.connectStatus()) return Promise.reject("No connection to phone");

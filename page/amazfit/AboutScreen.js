@@ -1,4 +1,5 @@
 import { BaseAboutScreen } from "../../lib/mmk/BaseAboutScreen";
+import { ListScreen } from "../../lib/mmk/ListScreen";
 import {VERSION} from "../../version";
 
 const { t } = getApp()._options.globalData
@@ -8,6 +9,7 @@ class AboutScreen extends BaseAboutScreen {
     super();
 
     const params = JSON.parse(p);
+    this.debugLog = params.debugLog || null;
 
     this.appId = 1023438;
     this.appName = "Tasks";
@@ -28,10 +30,33 @@ class AboutScreen extends BaseAboutScreen {
   }
 }
 
+class DebugLogScreen extends ListScreen {
+  constructor(logContent) {
+    super();
+    this.logContent = logContent;
+  }
+
+  start() {
+    this.headline(t("Debug Log:"));
+    this.text({
+      text: this.logContent || "(no logs)",
+      fontSize: this.fontSize - 4,
+      color: 0xCCCCCC
+    });
+    this.offset();
+  }
+}
+
 // noinspection JSCheckFunctionSignatures
 Page({
   onInit(params) {
     hmUI.setStatusBarVisible(false);
-    new AboutScreen(params).start();
+
+    const parsed = JSON.parse(params || "{}");
+    if (parsed.debugLog !== undefined) {
+      new DebugLogScreen(parsed.debugLog).start();
+    } else {
+      new AboutScreen(params).start();
+    }
   }
 })

@@ -20,12 +20,33 @@ export class CalDAVTaskList {
       package: "caldav_proxy",
       action: "list_tasks",
       listId: this.id,
-      completed: pageToken === "completed",
+      completed: withCompleted ? "all" : false,  // Fetch all or just incomplete
     }, {timeout: 5000}).then((d) => {
       if(d.error) throw new Error(d.error);
+
+      const allTasks = d.map((r) => new CalDAVTask(r, this, this._handler));
+
+      // Build UID -> task map for hierarchy
+      const uidMap = {};
+      for (const task of allTasks) {
+        if (task.uid) {
+          uidMap[task.uid] = task;
+        }
+      }
+
+      // Assign subtasks to their parents
+      const topLevelTasks = [];
+      for (const task of allTasks) {
+        if (task.parentId && uidMap[task.parentId]) {
+          uidMap[task.parentId].subtasks.push(task);
+        } else {
+          topLevelTasks.push(task);
+        }
+      }
+
       return {
-        tasks: d.map((r) => new CalDAVTask(r, this, this._handler)),
-        nextPageToken: (withCompleted && !pageToken) ? "completed" : "",
+        tasks: topLevelTasks,
+        nextPageToken: null,  // No pagination for CalDAV
       };
     })
   }
@@ -36,6 +57,24 @@ export class CalDAVTaskList {
       action: "insert_task",
       listId: this.id,
       title
+    }, {timeout: 5000}).then((d) => {
+      if(d.error) throw new Error(d.error);
+      return true;
+    })
+  }
+
+  /**
+   * Insert a subtask with RELATED-TO pointing to parent
+   * @param {string} title - Subtask title
+   * @param {string} parentUid - UID of parent task
+   */
+  insertSubtask(title, parentUid) {
+    return this._handler.messageBuilder.request({
+      package: "caldav_proxy",
+      action: "insert_task",
+      listId: this.id,
+      title,
+      parentUid
     }, {timeout: 5000}).then((d) => {
       if(d.error) throw new Error(d.error);
       return true;

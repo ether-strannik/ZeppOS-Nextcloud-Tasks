@@ -2,6 +2,7 @@ import {GoogleHandler} from "./google/GoogleHandler";
 import {deviceName} from "../lib/mmk/DeviceIdentifier";
 import { OfflineHandler } from "./cached/OfflineHandler";
 import {CachedTaskList} from "./cached/CachedTaskList";
+import {CachedHandler} from "./cached/CachedHandler";
 import {LogExecutor} from "./cached/LogExecutor";
 import {MicrosoftHandler} from "./microsoft/MicrosoftHandler";
 import {CalDAVHandler} from "./caldav/CalDAVHandler";
@@ -12,6 +13,7 @@ export class TasksProvider {
         this.config = config;
         this.messageBuilder = messageBuilder;
         this._handler = false;
+        this._cachedHandler = null;
     }
 
     get cantListCompleted() {
@@ -31,8 +33,9 @@ export class TasksProvider {
         }
     }
 
-    init() {
-        if(this._handler) return Promise.resolve();
+    init(forceRefresh = false) {
+        // Reuse existing handler unless forcing refresh
+        if(this._handler && !forceRefresh) return Promise.resolve();
 
         if(this.config.get("forever_offline")) {
             this._handler = new OfflineHandler(this.config);
@@ -61,7 +64,7 @@ export class TasksProvider {
     }
 
     /**
-     * Create cache data for offline work
+     * Create cache data for offline work (single list - legacy)
      * @param {any} listId ID of list used for cache
      * @param {TaskInterface[]} tasks Exiting tasks
      */
@@ -69,19 +72,87 @@ export class TasksProvider {
         if(this.config.get("forever_offline", false))
             throw new Error("Cache data will override offline data.");
 
-        const cacheData = [];
-        for(const task of tasks)
-            cacheData.push({
-                title: task.title,
-                completed: task.completed,
-                id: task.id,
-            })
+        // Helper to cache a task (including subtasks recursively)
+        const cacheTask = (task) => ({
+            id: task.id,
+            title: task.title,
+            description: task.description || "",
+            completed: task.completed,
+            important: task.important || false,
+            checklistItems: task.checklistItems || [],
+            uid: task.uid || null,
+            parentId: task.parentId || null,
+            priority: task.priority || 0,
+            status: task.status || "NEEDS-ACTION",
+            inProgress: task.inProgress || false,
+            dueDate: task.dueDate ? task.dueDate.getTime() : null,
+            location: task.location || "",
+            geo: task.geo || null,
+            subtasks: (task.subtasks || []).map(cacheTask)
+        });
+
+        const cacheData = tasks.map(cacheTask);
 
         this.config.update({
             tasks: cacheData,
             cacheListID: listId,
-            log: [],
         });
+    }
+
+    /**
+     * Cache all task lists with their tasks
+     * @param {Array} lists Array of {id, title, tasks} objects
+     */
+    cacheAllLists(lists) {
+        if(this.config.get("forever_offline", false))
+            return; // Don't override offline data
+
+        // Helper to cache a task (including subtasks recursively)
+        const cacheTask = (task) => ({
+            id: task.id,
+            title: task.title,
+            description: task.description || "",
+            completed: task.completed,
+            important: task.important || false,
+            checklistItems: task.checklistItems || [],
+            uid: task.uid || null,
+            parentId: task.parentId || null,
+            priority: task.priority || 0,
+            status: task.status || "NEEDS-ACTION",
+            inProgress: task.inProgress || false,
+            dueDate: task.dueDate ? task.dueDate.getTime() : null,
+            location: task.location || "",
+            geo: task.geo || null,
+            subtasks: (task.subtasks || []).map(cacheTask)
+        });
+
+        const cachedLists = lists.map(list => ({
+            id: list.id,
+            title: list.title,
+            tasks: (list.tasks || []).map(cacheTask)
+        }));
+
+        this.config.update({
+            cachedLists: cachedLists,
+        });
+    }
+
+    /**
+     * Get cached handler for offline access to all lists
+     */
+    getCachedHandler() {
+        if (!this._cachedHandler) {
+            this._cachedHandler = new CachedHandler(this.config);
+        }
+        return this._cachedHandler;
+    }
+
+    /**
+     * Check if cached lists are available
+     */
+    hasCachedLists() {
+        const cachedLists = this.config.get("cachedLists", []);
+        return cachedLists.length > 0;
     }
 
     getCachedTasksList() {
@@ -101,8 +172,9 @@ export class TasksProvider {
         const log = this.config.get("log", []);
         if(log.length === 0) return Promise.resolve();
 
-        const actualTaskList = this._handler.getTaskList(this.config.get("cacheListID"));
-        const executor = new LogExecutor(log, actualTaskList);
+        // Pass handler for multi-list support (listId per log entry)
+        const defaultTaskList = this._handler.getTaskList(this.config.get("cacheListID"));
+        const executor = new LogExecutor(log, defaultTaskList, this._handler);
         return executor.start().then(() => {
             this.config.update({log: []});
         })

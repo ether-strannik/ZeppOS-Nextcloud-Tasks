@@ -2,8 +2,8 @@ import {pjXML} from "../lib/pjxml";
 import {generateUUID} from "./UUID";
 
 const PAYLOAD_GET_CALENDARS = "<x0:propfind xmlns:x0=\"DAV:\"><x0:prop><x0:displayname /><x1:supported-calendar-component-set xmlns:x1=\"urn:ietf:params:xml:ns:caldav\" /></x0:prop></x0:propfind>\n";
-const PAYLOAD_GET_TASKS_COMPLETED = "<x1:calendar-query xmlns:x1=\"urn:ietf:params:xml:ns:caldav\"><x0:prop xmlns:x0=\"DAV:\"><x0:getcontenttype/><x0:getetag/><x0:resourcetype/><x0:displayname/><x0:owner/><x0:resourcetype/><x0:sync-token/><x0:current-user-privilege-set/><x0:getcontenttype/><x0:getetag/><x0:resourcetype/><x1:calendar-data/></x0:prop><x1:filter><x1:comp-filter name=\"VCALENDAR\"><x1:comp-filter name=\"VTODO\"><x1:prop-filter name=\"completed\"/></x1:comp-filter></x1:comp-filter></x1:filter></x1:calendar-query>\n";
-const PAYLOAD_GET_TASKS_NO_COMPLETED = "<x1:calendar-query xmlns:x1=\"urn:ietf:params:xml:ns:caldav\"><x0:prop xmlns:x0=\"DAV:\"><x0:resourcetype /><x1:calendar-data /></x0:prop><x1:filter><x1:comp-filter name=\"VCALENDAR\"><x1:comp-filter name=\"VTODO\"><x1:prop-filter name=\"completed\"><x1:is-not-defined /></x1:prop-filter></x1:comp-filter></x1:comp-filter></x1:filter></x1:calendar-query>\n";
+// Get ALL tasks (no completion filter) - let client filter
+const PAYLOAD_GET_ALL_TASKS = "<x1:calendar-query xmlns:x1=\"urn:ietf:params:xml:ns:caldav\"><x0:prop xmlns:x0=\"DAV:\"><x0:getetag/><x1:calendar-data/></x0:prop><x1:filter><x1:comp-filter name=\"VCALENDAR\"><x1:comp-filter name=\"VTODO\"/></x1:comp-filter></x1:filter></x1:calendar-query>\n";
 
 // noinspection HttpUrlsUsage
 export class CalDAVProxy {
@@ -17,7 +17,7 @@ export class CalDAVProxy {
     let response = {error: "unknown action"};
     switch(request.action) {
       case "insert_task":
-        response = await this.insertTask(request.listId, request.title);
+        response = await this.insertTask(request.listId, request.title, request.parentUid);
         break;
       case "delete_task":
         response = await this.deleteTask(request.id);
@@ -32,7 +32,7 @@ export class CalDAVProxy {
         response = await this.listTasks(request.listId, request.completed);
         break;
       case "replace_task":
-        response = await this.replaceTask(request.id, request.rawData);
+        response = await this.replaceTask(request.id, request.rawData, request.etag);
         break;
     }
 
@@ -40,132 +40,264 @@ export class CalDAVProxy {
   }
 
   async request(method, path, body=undefined, headers={}) {
-    return fetch({
-      method: method === "GET" ? method : "POST",
-      url: `${this.config.host}${path}`,
-      headers: {
-        "Content-Type": "application/xml; charset=utf-8",
-        "Authorization": this.authHeader,
-        "X-Http-Method": method,
-        "Cookie": "",
-        ...headers,
-      },
-      body,
-    });
+    const url = `${this.config.host}${path}`;
+    console.log(`CalDAV ${method} ${url}`);
+
+    try {
+      const resp = await fetch({
+        method: method === "GET" ? method : "POST",
+        url: url,
+        headers: {
+          "Content-Type": "application/xml; charset=utf-8",
+          "Authorization": this.authHeader,
+          "X-HTTP-Method-Override": method,
+          "Cookie": "",
+          ...headers,
+        },
+        body,
+      });
+      console.log(`CalDAV response: ${resp.status}`);
+      return resp;
+    } catch(e) {
+      console.log(`CalDAV request error: ${e}`);
+      throw e;
+    }
   }
 
   async getTask(id) {
-    const resp = await this.request("GET", id);
-    return {id, rawData: this.ics2js(resp.body)};
+    if(!this.config || !this.config.host)
+      return {error: "Config not loaded"};
+    if(!this.authHeader)
+      return {error: "Auth not configured"};
+
+    try {
+      const resp = await this.request("GET", id);
+      if(resp.status >= 300) {
+        console.log("CalDAV getTask failed:", resp.status);
+        return {error: `Server error ${resp.status}`};
+      }
+      return {id, rawData: this.ics2js(resp.body)};
+    } catch(e) {
+      console.log("CalDAV getTask error:", e);
+      return {error: `Failed to get task: ${e.message || e}`};
+    }
   }
 
   async deleteTask(id) {
-    const resp = await this.request("DELETE", id);
-    return {result: true};
+    if(!this.config || !this.config.host)
+      return {error: "Config not loaded"};
+    if(!this.authHeader)
+      return {error: "Auth not configured"};
+
+    try {
+      const resp = await this.request("DELETE", id);
+      if(resp.status >= 300 && resp.status !== 404) {
+        console.log("CalDAV deleteTask failed:", resp.status);
+        return {error: `Server error ${resp.status}`};
+      }
+      return {result: true};
+    } catch(e) {
+      console.log("CalDAV deleteTask error:", e);
+      return {error: `Failed to delete task: ${e.message || e}`};
+    }
   }
 
-  async insertTask(listId, title) {
-    const taskFile = `${Math.round(Math.random() * 10e15)}-${Date.now()}.ics`;
-    const now = this.currentTimeString();
-    const taskBody = this.js2ics({
-      "VCALENDAR": {
-        "VERSION": "2.0",
-        "PRODID": "-//Tasks for ZeppOS v2.1+",
-        "VTODO": {
-          "UID": generateUUID(),
-          "CREATED": now,
-          "LAST-MODIFIED": now,
-          "DTSTAMP": now,
-          "SUMMARY": title,
-        }
-      }
-    });
+  async insertTask(listId, title, parentUid = null) {
+    if(!this.config || !this.config.host)
+      return {error: "Config not loaded"};
+    if(!this.authHeader)
+      return {error: "Auth not configured"};
 
-    const resp = await this.request("PUT",
-      listId + "/" + taskFile,
-      taskBody, {
-        "Depth": "0",
-        "Content-Type": "text/calendar; charset=UTF-8",
+    try {
+      const taskFile = `${Math.round(Math.random() * 10e15)}-${Date.now()}.ics`;
+      const now = this.currentTimeString();
+      const vtodo = {
+        "UID": generateUUID(),
+        "CREATED": now,
+        "LAST-MODIFIED": now,
+        "DTSTAMP": now,
+        "SUMMARY": title,
+      };
+
+      // Add RELATED-TO for subtasks
+      if (parentUid) {
+        vtodo["RELATED-TO"] = parentUid;
+      }
+
+      const taskBody = this.js2ics({
+        "VCALENDAR": {
+          "VERSION": "2.0",
+          "PRODID": "-//Tasks for ZeppOS v2.1+",
+          "VTODO": vtodo
+        }
       });
-    if(resp.status !== 201)
-      return {error: "Failed"};
-    return {result: true};
+
+      const resp = await this.request("PUT",
+        listId + "/" + taskFile,
+        taskBody, {
+          "Depth": "0",
+          "Content-Type": "text/calendar; charset=UTF-8",
+        });
+
+      if(resp.status !== 201) {
+        console.log("CalDAV insertTask failed:", resp.status);
+        return {error: `Failed to create task (${resp.status})`};
+      }
+      return {result: true};
+    } catch(e) {
+      console.log("CalDAV insertTask error:", e);
+      return {error: `Failed to create task: ${e.message || e}`};
+    }
   }
 
   async listTasks(listID, completed) {
-    if(!this.config.host)
+    if(!this.config || !this.config.host)
       return {error: "Config not loaded"};
     if(!this.authHeader)
-      return {error: "No auth header (wtf)"};
+      return {error: "Auth not configured"};
 
-    const resp = await this.request("REPORT",
-      listID,
-      completed ? PAYLOAD_GET_TASKS_COMPLETED : PAYLOAD_GET_TASKS_NO_COMPLETED,
-      {
-        "Depth": "1",
+    try {
+      // Fetch ALL tasks, filter by completion status client-side
+      const resp = await this.request("REPORT",
+        listID,
+        PAYLOAD_GET_ALL_TASKS,
+        {
+          "Depth": "1",
+        });
+
+      if(resp.status >= 300) {
+        console.log("CalDAV listTasks failed:", resp.status);
+        return {error: `Server error ${resp.status}`};
+      }
+
+      const basePath = this.config.host.substring(this.config.host.indexOf("/", "https://".length));
+
+      const xml = pjXML.parse(resp.body);
+      const output = [];
+      for(const node of xml.selectAll("//d:response")) {
+        const hrefNodes = node.selectAll("//d:href");
+        if(hrefNodes.length < 1) continue;
+        const id = hrefNodes[0].content[0].substring(basePath.length);
+
+        let rawData = node.selectAll("//cal:calendar-data");
+        if(rawData.length < 1) continue;
+        rawData = rawData[0].content[0];
+
+        // Get ETag for update operations
+        let etag = "";
+        const etagNodes = node.selectAll("//d:getetag");
+        if(etagNodes.length > 0 && etagNodes[0].content.length > 0) {
+          etag = etagNodes[0].content[0];
+        }
+
+        const parsedData = this.ics2js(rawData);
+        output.push({id, rawData: parsedData, etag});
+      }
+
+      // Filter by completion status client-side
+      // completed = "all" means return everything, false means only incomplete
+      if (completed === "all") {
+        console.log("CalDAV listTasks: returning all", output.length, "tasks");
+        return output;
+      }
+
+      const filtered = output.filter(task => {
+        const status = task.rawData?.VCALENDAR?.VTODO?.STATUS;
+        const isCompleted = status === "COMPLETED";
+        return !isCompleted;  // Only incomplete tasks
       });
 
-    const basePath = this.config.host.substring(this.config.host.indexOf("/", "https://".length));
-
-    const xml = pjXML.parse(resp.body);
-    const output = [];
-    for(const node of xml.selectAll("//d:response")) {
-      const id = node.selectAll("//d:href")[0].content[0].substring(basePath.length);
-      let rawData = node.selectAll("//cal:calendar-data");
-      if(rawData.length < 1) return;
-      rawData = rawData[0].content[0];
-      output.push({id, rawData: this.ics2js(rawData)});
+      console.log("CalDAV listTasks: found", output.length, "total,", filtered.length, "incomplete");
+      return filtered;
+    } catch(e) {
+      console.log("CalDAV listTasks error:", e);
+      return {error: `Failed to list tasks: ${e.message || e}`};
     }
-
-    return output;
   }
 
-  async replaceTask(id, rawData) {
-    if(!this.config.host)
+  async replaceTask(id, rawData, etag) {
+    if(!this.config || !this.config.host)
       return {error: "Config not loaded"};
     if(!this.authHeader)
-      return {error: "No auth header (wtf)"};
+      return {error: "Auth not configured"};
 
-    const resp = await this.request("PUT", id, this.js2ics(rawData), {
-      "Depth": "0",
-      "Content-Type": "text/calendar; charset=UTF-8; component=vtodo; charset=UTF-8",
-    });
+    try {
+      const headers = {
+        "Depth": "0",
+        "Content-Type": "text/calendar; charset=UTF-8",
+      };
 
-    return {result: true};
+      // Add If-Match header with ETag to prevent 412 errors
+      if(etag) {
+        headers["If-Match"] = etag;
+      }
+
+      const body = this.js2ics(rawData);
+      console.log("CalDAV replaceTask body:", body);
+      const resp = await this.request("PUT", id, body, headers);
+
+      if(resp.status === 412) {
+        return {error: "Task was modified elsewhere. Please refresh and try again."};
+      }
+
+      if(resp.status >= 300) {
+        console.log("CalDAV replaceTask failed:", resp.status, resp.body);
+        return {error: `Failed to update task (${resp.status})`};
+      }
+
+      return {result: true};
+    } catch(e) {
+      console.log("CalDAV replaceTask error:", e);
+      return {error: `Failed to update task: ${e.message || e}`};
+    }
   }
 
   async getTaskLists() {
-    if(!this.config.host)
-      return {error: "Config not loaded"};
-    if(!this.authHeader)
-      return {error: "No auth header (wtf)"};
-
-    const resp = await this.request("PROPFIND",
-      `/calendars/${this.config.user}/`,
-      PAYLOAD_GET_CALENDARS,
-      {
-        "Depth": "1",
-      });
-
-    if(resp.status >= 300)
-      return {error: `Can't list calendars/TODO-lists, ${resp.status}`};
-    if(typeof resp.body !== "string")
-      return {error: "Zepp version didn't compatible"};
-
-    const basePath = this.config.host.substring(this.config.host.indexOf("/", "https://".length));
-
-    const xml = pjXML.parse(resp.body);
-    const output = [];
-    for(const node of xml.selectAll("//d:response")) {
-      const type = node.select("//cal:comp");
-      if(!type.attributes || type.attributes.name !== "VTODO") continue;
-
-      const id = node.select("//d:href").content[0].substring(basePath.length);
-      const title = node.select("//d:displayname").content[0];
-      output.push({id, title});
+    if(!this.config || !this.config.host) {
+      console.log("CalDAV getTaskLists: config not loaded", this.config);
+      return {error: "Config not loaded. Please log in again."};
+    }
+    if(!this.authHeader) {
+      console.log("CalDAV getTaskLists: no auth header");
+      return {error: "Auth not configured. Please log in again."};
     }
 
-    return output;
+    try {
+      const resp = await this.request("PROPFIND",
+        `/calendars/${this.config.user}/`,
+        PAYLOAD_GET_CALENDARS,
+        {
+          "Depth": "1",
+        });
+
+      if(resp.status >= 300) {
+        console.log("CalDAV getTaskLists failed:", resp.status, resp.body);
+        return {error: `Server error ${resp.status}. Check credentials.`};
+      }
+      if(typeof resp.body !== "string") {
+        console.log("CalDAV getTaskLists: invalid body type", typeof resp.body);
+        return {error: "Invalid server response"};
+      }
+
+      const basePath = this.config.host.substring(this.config.host.indexOf("/", "https://".length));
+
+      const xml = pjXML.parse(resp.body);
+      const output = [];
+      for(const node of xml.selectAll("//d:response")) {
+        const type = node.select("//cal:comp");
+        if(!type.attributes || type.attributes.name !== "VTODO") continue;
+
+        const id = node.select("//d:href").content[0].substring(basePath.length);
+        const title = node.select("//d:displayname").content[0];
+        output.push({id, title});
+      }
+
+      console.log("CalDAV getTaskLists: found", output.length, "lists");
+      return output;
+    } catch(e) {
+      console.log("CalDAV getTaskLists error:", e);
+      return {error: `Connection failed: ${e.message || e}`};
+    }
   }
 
   currentTimeString() {
@@ -204,13 +336,16 @@ export class CalDAVProxy {
     let out = "";
     for(const key in obj) {
       if(key === "") continue;
-      if(typeof obj[key] === "string") {
-        out += key + ":" + this.icsEscape(obj[key]) + "\n";
-      } else {
-        out += "BEGIN:" + key + "\n";
-        out += this.js2ics(obj[key]);
-        out += "END:" + key + "\n";
+      const val = obj[key];
+      // Handle string and number values as properties
+      if(typeof val === "string" || typeof val === "number") {
+        out += key + ":" + this.icsEscape(String(val)) + "\r\n";
+      } else if(typeof val === "object" && val !== null) {
+        out += "BEGIN:" + key + "\r\n";
+        out += this.js2ics(val);
+        out += "END:" + key + "\r\n";
       }
+      // Skip null, undefined, and other types
     }
 
     return out;
@@ -229,7 +364,7 @@ export class CalDAVProxy {
       if(this.config.host.endsWith("/"))
         this.config.host = this.config.host.substring(0, this.config.host.length -1);
       this.authHeader = "Basic " + btoa(`${this.config.user}:${this.config.password}`);
-      console.log("Load CalDAV config", this.config);
+      console.log("Load CalDAV config", this.config.host, this.config.user);
     } catch(e) {
       this.config = {};
     }
@@ -257,17 +392,25 @@ export class CalDAVProxy {
   }
 
   async validateConfig(config) {
-    console.log(config);
-    const authHeader = "Basic " + btoa(`${config.user}:${config.password}`);
-    const resp = await fetch({
-      url: config.host + "calendars/" + config.user,
-      headers: {
-        "Authorization": authHeader,
-        "X-Http-Method": "PROPFIND",
-      }
-    });
+    console.log("Validating CalDAV config:", config);
+    try {
+      const authHeader = "Basic " + btoa(`${config.user}:${config.password}`);
+      const resp = await fetch({
+        method: "POST",
+        url: config.host + "calendars/" + config.user + "/",
+        headers: {
+          "Content-Type": "application/xml; charset=utf-8",
+          "Authorization": authHeader,
+          "X-HTTP-Method-Override": "PROPFIND",
+          "Depth": "0",
+        }
+      });
 
-    console.log(resp.status);
-    settings.settingsStorage.setItem("caldav_validate_result", JSON.stringify(resp.status < 300));
+      console.log("CalDAV validate response:", resp.status);
+      settings.settingsStorage.setItem("caldav_validate_result", JSON.stringify(resp.status < 300));
+    } catch(e) {
+      console.log("CalDAV validate error:", e);
+      settings.settingsStorage.setItem("caldav_validate_result", JSON.stringify(false));
+    }
   }
 }
