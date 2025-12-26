@@ -9,6 +9,25 @@ const PAYLOAD_GET_ALL_TASKS = "<x1:calendar-query xmlns:x1=\"urn:ietf:params:xml
 export class CalDAVProxy {
   constructor() {
     this.onConfigAvailable();
+    this.debugLog = [];
+  }
+
+  log(msg) {
+    const timestamp = new Date().toISOString().substring(11, 19);
+    const line = `[${timestamp}] ${msg}`;
+    console.log(line);
+    this.debugLog.push(line);
+    // Keep only last 50 lines
+    if (this.debugLog.length > 50) {
+      this.debugLog.shift();
+    }
+    // Store in settingsStorage for Debug tab
+    try {
+      settings.settingsStorage.setItem("phone_debug_log", JSON.stringify({
+        timestamp: new Date().toISOString(),
+        content: this.debugLog.join('\n')
+      }));
+    } catch(e) {}
   }
 
   async handleRequest(ctx, request) {
@@ -233,7 +252,9 @@ export class CalDAVProxy {
       }
 
       const body = this.js2ics(rawData);
-      console.log("CalDAV replaceTask body:", body);
+      this.log("=== replaceTask ===");
+      this.log("ID: " + id);
+      this.log("Body:\n" + body);
       const resp = await this.request("PUT", id, body, headers);
 
       if(resp.status === 412) {
@@ -241,9 +262,12 @@ export class CalDAVProxy {
       }
 
       if(resp.status >= 300) {
-        console.log("CalDAV replaceTask failed:", resp.status, resp.body);
-        return {error: `Failed to update task (${resp.status})`};
+        this.log("FAILED " + resp.status);
+        this.log("Response: " + (resp.body || "empty"));
+        return {error: `Failed (${resp.status}): ${resp.body?.substring(0, 100) || 'no details'}`};
       }
+
+      this.log("SUCCESS " + resp.status);
 
       return {result: true};
     } catch(e) {

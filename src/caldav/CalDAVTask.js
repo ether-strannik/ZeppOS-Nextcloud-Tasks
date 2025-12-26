@@ -19,7 +19,8 @@ export class CalDAVTask {
       this.uid = vtodo.UID || null;
       this.parentId = vtodo["RELATED-TO"] || null;
       this.priority = parseInt(vtodo.PRIORITY, 10) || 0;
-      this.dueDate = this._parseDueDate(vtodo.DUE);
+      this.startDate = this._parseDueDate(this._getPropertyValue(vtodo, "DTSTART"));
+      this.dueDate = this._parseDueDate(this._getPropertyValue(vtodo, "DUE"));
       this.location = vtodo.LOCATION || "";
       this.geo = this._parseGeo(vtodo.GEO);
     } else {
@@ -31,6 +32,7 @@ export class CalDAVTask {
       this.uid = null;
       this.parentId = null;
       this.priority = 0;
+      this.startDate = null;
       this.dueDate = null;
       this.location = "";
       this.geo = null;
@@ -41,6 +43,24 @@ export class CalDAVTask {
 
     this.list = list;
     this._handler = handler;
+  }
+
+  /**
+   * Get property value, handling parameterized property names
+   * e.g., "DTSTART" might be stored as "DTSTART;VALUE=DATE"
+   */
+  _getPropertyValue(vtodo, propName) {
+    // Try exact match first
+    if (vtodo[propName] !== undefined) {
+      return vtodo[propName];
+    }
+    // Try parameterized versions (e.g., "DTSTART;VALUE=DATE")
+    for (const key of Object.keys(vtodo)) {
+      if (key === propName || key.startsWith(propName + ";")) {
+        return vtodo[key];
+      }
+    }
+    return null;
   }
 
   /**
@@ -291,6 +311,58 @@ export class CalDAVTask {
   }
 
   /**
+   * Set task start date
+   * @param {Date|null} date - Start date or null to clear
+   */
+  setStartDate(date) {
+    const vtodo = this.rawData?.VCALENDAR?.VTODO;
+    if (!vtodo) {
+      console.log("setStartDate: rawData not loaded");
+      return Promise.reject(new Error("Task data not loaded"));
+    }
+
+    console.log("setStartDate: updating to", date);
+
+    // Remove any existing DTSTART variants (with or without parameters)
+    for (const key of Object.keys(vtodo)) {
+      if (key === "DTSTART" || key.startsWith("DTSTART;")) {
+        delete vtodo[key];
+      }
+    }
+
+    if (date) {
+      this.startDate = date;
+      // Format as iCalendar datetime: YYYYMMDDTHHMMSS
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, "0");
+      const d = String(date.getDate()).padStart(2, "0");
+      const hh = String(date.getHours()).padStart(2, "0");
+      const mm = String(date.getMinutes()).padStart(2, "0");
+      const ss = String(date.getSeconds()).padStart(2, "0");
+      vtodo.DTSTART = `${y}${m}${d}T${hh}${mm}${ss}`;
+    } else {
+      this.startDate = null;
+    }
+
+    vtodo["LAST-MODIFIED"] = this.getCurrentTimeString();
+
+    return this._handler.messageBuilder.request({
+      package: "caldav_proxy",
+      action: "replace_task",
+      id: this.id,
+      rawData: this.rawData,
+      etag: this.etag,
+    }, {timeout: 8000}).then((resp) => {
+      console.log("setStartDate: response", JSON.stringify(resp));
+      this.etag = "";
+      return resp;
+    }).catch((e) => {
+      console.log("setStartDate: error", e);
+      throw e;
+    });
+  }
+
+  /**
    * Set task due date
    * @param {Date|null} date - Due date or null to clear
    */
@@ -302,6 +374,13 @@ export class CalDAVTask {
     }
 
     console.log("setDueDate: updating to", date);
+
+    // Remove any existing DUE variants (with or without parameters)
+    for (const key of Object.keys(vtodo)) {
+      if (key === "DUE" || key.startsWith("DUE;")) {
+        delete vtodo[key];
+      }
+    }
 
     if (date) {
       this.dueDate = date;
@@ -315,7 +394,6 @@ export class CalDAVTask {
       vtodo.DUE = `${y}${m}${d}T${hh}${mm}${ss}`;
     } else {
       this.dueDate = null;
-      delete vtodo.DUE;
     }
 
     vtodo["LAST-MODIFIED"] = this.getCurrentTimeString();
@@ -413,7 +491,8 @@ export class CalDAVTask {
         this.uid = vtodo.UID || null;
         this.parentId = vtodo["RELATED-TO"] || null;
         this.priority = parseInt(vtodo.PRIORITY, 10) || 0;
-        this.dueDate = this._parseDueDate(vtodo.DUE);
+        this.startDate = this._parseDueDate(this._getPropertyValue(vtodo, "DTSTART"));
+        this.dueDate = this._parseDueDate(this._getPropertyValue(vtodo, "DUE"));
         this.location = vtodo.LOCATION || "";
         this.geo = this._parseGeo(vtodo.GEO);
       }

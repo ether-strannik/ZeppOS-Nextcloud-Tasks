@@ -24,6 +24,7 @@
 - Edit task title
 - Edit task description/notes
 - Edit task priority (0-9)
+- **Edit start date** with visual calendar and numeric keypad time picker
 - **Edit due date** with visual calendar and numeric keypad time picker
 - Add subtasks (creates RELATED-TO link)
 - Add current GPS location
@@ -87,18 +88,6 @@
 
 ---
 
-## [2.4-fork.1] - 2024-12-25
-
-### Changed
-- Forked from melianmiko/ZeppOS-Tasks
-- Updated README for Nextcloud focus
-
-### Removed
-- Google Tasks sync (Nextcloud-only focus)
-- Microsoft To Do sync (Nextcloud-only focus)
-
----
-
 ## [2.4] - Original Release
 Last version by melianmiko before fork.
 
@@ -121,12 +110,12 @@ Watch ←BLE→ Phone ←HTTPS→ Vercel Proxy ←CalDAV→ Nextcloud
 | SUMMARY     | ✅ | Task title |
 | STATUS      | ✅ | NEEDS-ACTION, IN-PROCESS, COMPLETED |
 | PRIORITY    | ✅ | 0-9 with color coding |
+| DTSTART     | ✅ | Start date/time |
 | DUE         | ✅ | Countdown display |
 | DESCRIPTION | ✅ | Notes with icon indicator |
 | RELATED-TO  | ✅ | Subtasks hierarchy |
 | GEO         | ✅ | GPS coordinates |
 | LOCATION    | ✅ | Location text |
-| DTSTART     | ❌ | Not implemented |
 | CATEGORIES  | ❌ | Not implemented |
 | VALARM      | ❌ | Not implemented |
 | RRULE       | ❌ | Not implemented |

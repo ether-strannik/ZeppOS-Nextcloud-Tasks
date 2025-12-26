@@ -68,6 +68,27 @@ class TaskEditScreen extends ListScreen {
       });
     }
 
+    // Start Date section (CalDAV only - tasks with setStartDate)
+    if (typeof this.task.setStartDate === 'function') {
+      this.offset(16);
+      this.headline(t("Start Date"));
+      const startDateText = this.task.startDate
+        ? this.formatDateTime(this.task.startDate)
+        : t("Not set");
+      this.startDateRow = this.row({
+        text: startDateText,
+        icon: "icon_s/edit.png",
+        callback: () => this.showStartDatePicker()
+      });
+      if (this.task.startDate) {
+        this.row({
+          text: t("Clear start date"),
+          icon: "icon_s/delete.png",
+          callback: () => this.clearStartDate()
+        });
+      }
+    }
+
     // Due Date section (CalDAV only - tasks with setDueDate)
     if (typeof this.task.setDueDate === 'function') {
       this.offset(16);
@@ -201,6 +222,27 @@ class TaskEditScreen extends ListScreen {
     return `${y}-${m}-${d} ${hh}:${mm}`;
   }
 
+  showStartDatePicker() {
+    // Hide main list
+    hmUI.setLayerScrolling(false);
+    hmApp.setLayerY(0);
+
+    this.dateTimePicker = new DateTimePicker({
+      initialDate: this.task.startDate || new Date(),
+      showTime: true,
+      onConfirm: (date) => {
+        this.dateTimePicker = null;
+        hmUI.setLayerScrolling(true);
+        this.saveStartDate(date);
+      },
+      onCancel: () => {
+        this.dateTimePicker = null;
+        hmUI.setLayerScrolling(true);
+      }
+    });
+    this.dateTimePicker.start();
+  }
+
   showDueDatePicker() {
     // Hide main list
     hmUI.setLayerScrolling(false);
@@ -220,6 +262,47 @@ class TaskEditScreen extends ListScreen {
       }
     });
     this.dateTimePicker.start();
+  }
+
+  saveStartDate(date) {
+    if (this.isSaving) return;
+
+    this.isSaving = true;
+    this.startDateRow.setText(t("Saving…"));
+    createSpinner();
+
+    this.task.setStartDate(date).then((resp) => {
+      if (resp && resp.error) {
+        this.isSaving = false;
+        this.startDateRow.setText(this.formatDateTime(date));
+        hmUI.showToast({ text: resp.error });
+        return;
+      }
+      hmApp.goBack();
+    }).catch((e) => {
+      this.isSaving = false;
+      this.startDateRow.setText(this.task.startDate ? this.formatDateTime(this.task.startDate) : t("Not set"));
+      hmUI.showToast({ text: e.message || t("Failed to save") });
+    });
+  }
+
+  clearStartDate() {
+    if (this.isSaving) return;
+
+    this.isSaving = true;
+    createSpinner();
+
+    this.task.setStartDate(null).then((resp) => {
+      if (resp && resp.error) {
+        this.isSaving = false;
+        hmUI.showToast({ text: resp.error });
+        return;
+      }
+      hmApp.goBack();
+    }).catch((e) => {
+      this.isSaving = false;
+      hmUI.showToast({ text: e.message || t("Failed to clear") });
+    });
   }
 
   saveDueDate(date) {
