@@ -22,8 +22,6 @@ class SettingsScreen extends ConfiguredListScreen {
   }
 
   build() {
-    if(this.mode !== "setup") this.buildHelpItems();
-
     // Lists picker - show if we have lists (online or cached)
     if(this.lists && this.lists.length > 0) {
       this.headline(t('Task lists:'));
@@ -138,6 +136,9 @@ class SettingsScreen extends ConfiguredListScreen {
         }
       });
     }
+
+    // About section at the bottom
+    if(this.mode !== "setup") this.buildHelpItems();
 
     this.offset();
   }
