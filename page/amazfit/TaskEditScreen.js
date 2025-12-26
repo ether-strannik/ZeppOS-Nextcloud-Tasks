@@ -169,7 +169,7 @@ class TaskEditScreen extends ListScreen {
       this.headline(t("Subtasks"));
       this.row({
         text: t("Add subtask"),
-        icon: "icon_s/add.png",
+        icon: "icon_s/new.png",
         callback: () => this.showSubtaskEditor()
       });
     }
