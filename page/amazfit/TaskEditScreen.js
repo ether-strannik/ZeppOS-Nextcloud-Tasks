@@ -9,6 +9,7 @@ class TaskEditScreen extends ListScreen {
   constructor(param) {
     super();
     this.isSaving = false;
+    this.deleteConfirm = 1; // Requires 2 taps to delete
 
     param = JSON.parse(param);
     this.listId = param.list_id;
@@ -427,6 +428,14 @@ class TaskEditScreen extends ListScreen {
 
   doDelete() {
     if(this.isSaving) return;
+
+    // Require double-tap to confirm
+    if(this.deleteConfirm > 0) {
+      this.deleteConfirm--;
+      this.deleteRow.setText(t("Tap again to delete"));
+      hmUI.showToast({ text: t("Tap again to confirm") });
+      return;
+    }
 
     this.isSaving = true;
     this.deleteRow.setText(t("Deleting…"));
