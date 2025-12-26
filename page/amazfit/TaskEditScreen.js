@@ -371,13 +371,42 @@ class TaskEditScreen extends ListScreen {
       let lat = geolocation.latitude;
       let lon = geolocation.longitude;
 
-      // Some APIs might use getLatitude/getLongitude methods
-      if ((lat === undefined || lat === null) && typeof geolocation.getLatitude === 'function') {
-        lat = geolocation.getLatitude();
-        lon = geolocation.getLongitude();
+      // Log raw values and their types
+      log("Raw lat type:", typeof lat, "value:", JSON.stringify(lat));
+      log("Raw lon type:", typeof lon, "value:", JSON.stringify(lon));
+
+      // Convert DMS (Degrees, Minutes, Seconds) to decimal degrees
+      function dmsToDecimal(dms) {
+        if (!dms || typeof dms !== 'object') return dms;
+        if (dms.degrees === undefined) return dms;
+
+        let decimal = Math.abs(dms.degrees) + (dms.minutes || 0) / 60 + (dms.seconds || 0) / 3600;
+
+        // Handle direction: S and W are negative
+        if (dms.direction === 'S' || dms.direction === 'W') {
+          decimal = -decimal;
+        }
+        return decimal;
       }
 
-      log("GPS data: lat=" + lat + " lon=" + lon);
+      // If lat/lon are objects (DMS format), convert to decimal
+      if (lat && typeof lat === 'object') {
+        lat = dmsToDecimal(lat);
+        log("Converted lat:", lat);
+      }
+      if (lon && typeof lon === 'object') {
+        lon = dmsToDecimal(lon);
+        log("Converted lon:", lon);
+      }
+
+      // Some APIs might use getLatitude/getLongitude methods
+      if ((lat === undefined || lat === null || typeof lat === 'object') && typeof geolocation.getLatitude === 'function') {
+        lat = geolocation.getLatitude();
+        lon = geolocation.getLongitude();
+        log("From methods: lat=", lat, "lon=", lon);
+      }
+
+      log("Final GPS data: lat=" + lat + " lon=" + lon);
       flushLog();
 
       // Check if we have valid coordinates

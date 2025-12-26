@@ -1,5 +1,5 @@
 import { ConfiguredListScreen } from "../ConfiguredListScreen";
-import { readLog, clearLog } from "../Utils";
+import { readLog, clearLog, syncLogToPhone } from "../Utils";
 
 const { config, t, tasksProvider } = getApp()._options.globalData
 
@@ -125,6 +125,11 @@ class SettingsScreen extends ConfiguredListScreen {
         callback: () => this.showDebugLog()
       });
       this.row({
+        text: t("Sync log to phone"),
+        icon: "icon_s/link.png",
+        callback: () => this.syncLog()
+      });
+      this.row({
         text: t("Clear debug log"),
         icon: "icon_s/delete.png",
         callback: () => {
@@ -174,6 +179,19 @@ class SettingsScreen extends ConfiguredListScreen {
     hmApp.gotoPage({
       url: `page/amazfit/AboutScreen`,
       param: JSON.stringify({ debugLog: logContent })
+    });
+  }
+
+  syncLog() {
+    hmUI.showToast({ text: t("Syncing...") });
+    syncLogToPhone().then((resp) => {
+      if (resp && resp.error) {
+        hmUI.showToast({ text: resp.error });
+      } else {
+        hmUI.showToast({ text: t("Log synced to phone") });
+      }
+    }).catch((e) => {
+      hmUI.showToast({ text: t("Sync failed") });
     });
   }
 

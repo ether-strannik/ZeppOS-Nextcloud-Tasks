@@ -49,6 +49,23 @@ export class ZeppTasksSideService {
     handleFetchRequest(ctx, request);
     await this.caldavProxy.handleRequest(ctx, request);
 
+    // Handle debug log sync
+    if(request.package === "debug_log") {
+      if(request.action === "save_log") {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        console.log("=== DEBUG LOG FROM WATCH ===");
+        console.log(request.content);
+        console.log("=== END DEBUG LOG ===");
+        // Store in settings so it can be viewed in Zepp app
+        settings.settingsStorage.setItem("debug_log", JSON.stringify({
+          timestamp: timestamp,
+          content: request.content
+        }));
+        return ctx.response({ data: { result: true, timestamp } });
+      }
+      return;
+    }
+
     if(request.package !== "tasks_login") return;
     switch(request.action) {
       case "notify_offline":

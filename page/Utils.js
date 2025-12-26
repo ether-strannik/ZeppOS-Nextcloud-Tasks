@@ -41,9 +41,9 @@ export function flushLog() {
     const content = logBuffer.join('');
     logBuffer = [];
 
-    // Append to file
-    const file = hmFS.open_asset(LOG_FILE, hmFS.O_WRONLY | hmFS.O_APPEND | hmFS.O_CREAT);
-    if (file) {
+    // Use hmFS.open (not open_asset) for writable files in data directory
+    const file = hmFS.open(LOG_FILE, hmFS.O_WRONLY | hmFS.O_APPEND | hmFS.O_CREAT);
+    if (file !== undefined && file >= 0) {
       const buffer = new ArrayBuffer(content.length);
       const view = new Uint8Array(buffer);
       for (let i = 0; i < content.length; i++) {
@@ -59,11 +59,11 @@ export function flushLog() {
 
 export function readLog() {
   try {
-    const [stat, err] = hmFS.stat_asset(LOG_FILE);
-    if (err || !stat) return "(no log file)";
+    const [stat, err] = hmFS.stat(LOG_FILE);
+    if (err !== 0 || !stat) return "(no log file)";
 
-    const file = hmFS.open_asset(LOG_FILE, hmFS.O_RDONLY);
-    if (!file) return "(cannot open log)";
+    const file = hmFS.open(LOG_FILE, hmFS.O_RDONLY);
+    if (file === undefined || file < 0) return "(cannot open log)";
 
     const buffer = new ArrayBuffer(Math.min(stat.size, 4096));
     hmFS.read(file, buffer, 0, buffer.byteLength);
@@ -74,16 +74,30 @@ export function readLog() {
     for (let i = 0; i < view.length && view[i] !== 0; i++) {
       str += String.fromCharCode(view[i]);
     }
-    return str;
+    return str || "(empty log)";
   } catch(e) {
-    return "Error: " + e;
+    return "Read error: " + e;
   }
 }
 
 export function clearLog() {
   try {
-    hmFS.remove_asset(LOG_FILE);
+    hmFS.remove(LOG_FILE);
   } catch(e) {}
+}
+
+export function syncLogToPhone() {
+  const logContent = readLog();
+  if (!logContent || logContent.startsWith("(")) {
+    return Promise.resolve({ error: "No log to sync" });
+  }
+
+  return messageBuilder.request({
+    package: "debug_log",
+    action: "save_log",
+    content: logContent,
+    timestamp: Date.now()
+  }, { timeout: 5000 });
 }
 
 export function request(data, timeout = 10000) {
