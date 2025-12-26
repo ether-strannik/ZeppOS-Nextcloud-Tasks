@@ -23,6 +23,9 @@ export class CalDAVTask {
       this.dueDate = this._parseDueDate(this._getPropertyValue(vtodo, "DUE"));
       this.location = vtodo.LOCATION || "";
       this.geo = this._parseGeo(vtodo.GEO);
+      // Parse CATEGORIES (comma-separated string to array)
+      const categoriesStr = vtodo.CATEGORIES || "";
+      this.categories = categoriesStr ? categoriesStr.split(",").map(c => c.trim()) : [];
     } else {
       this.title = "";
       this.description = "";
@@ -36,6 +39,7 @@ export class CalDAVTask {
       this.dueDate = null;
       this.location = "";
       this.geo = null;
+      this.categories = [];
     }
 
     // Subtasks will be populated by CalDAVTaskList
@@ -465,6 +469,44 @@ export class CalDAVTask {
     });
   }
 
+  /**
+   * Set task categories (tags)
+   * @param {string[]} categories - Array of category names
+   */
+  setCategories(categories) {
+    const vtodo = this.rawData?.VCALENDAR?.VTODO;
+    if (!vtodo) {
+      console.log("setCategories: rawData not loaded");
+      return Promise.reject(new Error("Task data not loaded"));
+    }
+
+    console.log("setCategories: updating to", categories);
+
+    this.categories = categories || [];
+    if (categories && categories.length > 0) {
+      vtodo.CATEGORIES = categories.join(",");
+    } else {
+      delete vtodo.CATEGORIES;
+    }
+
+    vtodo["LAST-MODIFIED"] = this.getCurrentTimeString();
+
+    return this._handler.messageBuilder.request({
+      package: "caldav_proxy",
+      action: "replace_task",
+      id: this.id,
+      rawData: this.rawData,
+      etag: this.etag,
+    }, {timeout: 8000}).then((resp) => {
+      console.log("setCategories: response", JSON.stringify(resp));
+      this.etag = "";
+      return resp;
+    }).catch((e) => {
+      console.log("setCategories: error", e);
+      throw e;
+    });
+  }
+
   delete() {
     return this._handler.messageBuilder.request({
       package: "caldav_proxy",
@@ -495,6 +537,8 @@ export class CalDAVTask {
         this.dueDate = this._parseDueDate(this._getPropertyValue(vtodo, "DUE"));
         this.location = vtodo.LOCATION || "";
         this.geo = this._parseGeo(vtodo.GEO);
+        const categoriesStr = vtodo.CATEGORIES || "";
+        this.categories = categoriesStr ? categoriesStr.split(",").map(c => c.trim()) : [];
       }
     })
   }

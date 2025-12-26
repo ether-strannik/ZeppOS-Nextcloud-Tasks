@@ -76,6 +76,14 @@ class SettingsScreen extends ConfiguredListScreen {
         }
       });
       this.row({
+        text: t("Show categories"),
+        icon: `icon_s/cb_${config.get("showCategories", false)}.png`,
+        callback: () => {
+          config.set("showCategories", !config.get("showCategories", false));
+          hmApp.goBack();
+        }
+      });
+      this.row({
         text: t("Pull down to refresh"),
         icon: `icon_s/cb_${config.get("pullToRefresh", false)}.png`,
         callback: () => {
