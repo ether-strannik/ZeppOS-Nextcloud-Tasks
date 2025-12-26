@@ -157,5 +157,5 @@ Watch ←BLE→ Phone ←HTTPS→ Vercel Proxy ←CalDAV→ Nextcloud
 | GEO         | ✅ | GPS coordinates |
 | LOCATION    | ✅ | Location text |
 | CATEGORIES  | ✅ | Multi-select tags with [#tag] display |
-| VALARM      | ❌ | Not implemented |
+| VALARM      | ✅ | Reminder presets (5min to 2 days before) |
 | RRULE       | ❌ | Not implemented |
