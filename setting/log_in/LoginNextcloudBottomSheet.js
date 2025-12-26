@@ -2,7 +2,7 @@ import {gettext as t} from "i18n";
 import {BottomSheet} from "../../lib/mmk/setting/BottomSheet";
 import {StateManager} from "../../lib/mmk/setting/StateManager";
 import {TextRoot} from "../../lib/mmk/setting/Layout";
-import {Link, Paragraph} from "../../lib/mmk/setting/Typography";
+import {Paragraph} from "../../lib/mmk/setting/Typography";
 import {Input} from "../../lib/mmk/setting/Input";
 import {PrimaryButton} from "../../lib/mmk/setting/Buttons";
 
@@ -23,15 +23,6 @@ export function LoginNextcloudBottomSheet(ctx, onCancel) {
 
   return BottomSheet(true, onCancel, [
     TextRoot([
-      Paragraph([
-        t("Additional server configuration is required, to use this feature. Check this before login: "),
-        Link("https://github.com/melianmiko/ZeppOS-Tasks/wiki/Nextcloud-server-configuration"),
-      ], {
-        backgroundColor: "#EEEEEE",
-        fontSize: "0.9em",
-        borderRadius: "8px",
-        padding: "8px",
-      }),
       Paragraph([
         t("Enter your Nextcloud installation URL:"),
       ]),
