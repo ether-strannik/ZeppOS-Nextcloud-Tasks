@@ -1,12 +1,9 @@
-import {GoogleHandler} from "./google/GoogleHandler";
 import {deviceName} from "../lib/mmk/DeviceIdentifier";
 import { OfflineHandler } from "./cached/OfflineHandler";
 import {CachedTaskList} from "./cached/CachedTaskList";
 import {CachedHandler} from "./cached/CachedHandler";
 import {LogExecutor} from "./cached/LogExecutor";
-import {MicrosoftHandler} from "./microsoft/MicrosoftHandler";
 import {CalDAVHandler} from "./caldav/CalDAVHandler";
-import {TickTickHandler} from "./ticktick/TickTickHandler";
 
 export class TasksProvider {
     constructor(config, messageBuilder) {
@@ -22,12 +19,6 @@ export class TasksProvider {
 
     _createHandler(data) {
         switch(data.provider) {
-            case "google":
-                return new GoogleHandler(data.token);
-            case "microsoft":
-                return new MicrosoftHandler(data.token);
-            case "tick_tick":
-                return new TickTickHandler(data.token);
             case "caldav":
                 return new CalDAVHandler(this.messageBuilder);
         }

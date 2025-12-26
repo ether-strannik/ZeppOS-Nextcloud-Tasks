@@ -6,7 +6,7 @@ import {BaseListItem, ListItemText} from "../../lib/mmk/setting/ListItem";
 import {LoadingBottomSheet} from "./LoadingBottomSheet";
 import {LoginWithResponseBottomSheet} from "./LoginWithResponseBottomSheet";
 import {LoginAutoBottomSheet} from "./LoginAutoBottomSheet";
-import {BRAND_GOOGLE_32, BRAND_MICROSOFT_32, BRAND_NEXTCLOUD_32, BRAND_TICK_TICK_32} from "../Icons";
+import {BRAND_NEXTCLOUD_32} from "../Icons";
 import {LoginNextcloudBottomSheet} from "./LoginNextcloudBottomSheet";
 
 export function LoginForm(ctx) {
@@ -35,26 +35,8 @@ export function LoginForm(ctx) {
       ]),
 
       LoginProviderRow({
-        icon: BRAND_GOOGLE_32,
-        title: t("Use Google account"),
-        description: t("Tasks will be in sync with Google tasks"),
-        callback: () => useProvider("google"),
-      }),
-      LoginProviderRow({
-        icon: BRAND_MICROSOFT_32,
-        title: t("Use Microsoft account"),
-        description: t("Tasks will be in sync with Microsoft ToDo"),
-        callback: () => useProvider("microsoft"),
-      }),
-      LoginProviderRow({
-        icon: BRAND_TICK_TICK_32,
-        title: t("Use TickTick account"),
-        description: t("Tasks will be in sync with TickTick application"),
-        callback: () => useProvider("tick_tick"),
-      }),
-      LoginProviderRow({
         icon: BRAND_NEXTCLOUD_32,
-        title: t("Use Nextcloud server account") + " (beta)",
+        title: t("Use Nextcloud server account"),
         description: t("Sync your tasks with personal cloud server"),
         callback: () => useProvider("caldav"),
       }),

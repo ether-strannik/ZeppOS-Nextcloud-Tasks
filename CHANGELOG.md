@@ -59,6 +59,12 @@
 - Settings screen reorganized with Debug section
 - Phone app settings: replaced About tab with Debug tab
 
+### Removed
+- **Microsoft To Do support**: Removed MicrosoftHandler, MicrosoftAuth, and related UI
+- **Google Tasks support**: Removed GoogleHandler, GoogleAuth, and related UI
+- **TickTick support**: Removed TickTickHandler, TickTickAuth, and related UI
+- App now exclusively supports Nextcloud/CalDAV
+
 ### Technical
 - Added `device:os.geolocation` permission
 - GPS sensor returns DMS objects, converted to decimal degrees

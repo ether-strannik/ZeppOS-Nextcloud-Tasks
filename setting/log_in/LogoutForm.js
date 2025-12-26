@@ -4,7 +4,7 @@ import {CenteredPane, TextRoot} from "../../lib/mmk/setting/Layout";
 import {Paragraph, Title} from "../../lib/mmk/setting/Typography";
 import {PrimaryButton} from "../../lib/mmk/setting/Buttons";
 import {TabOffset} from "../../lib/mmk/setting/Tabs";
-import {APP_ICON_32, BRAND_GOOGLE_32, BRAND_MICROSOFT_32, BRAND_NEXTCLOUD_32, LINK_32} from "../Icons";
+import {APP_ICON_32, BRAND_NEXTCLOUD_32, LINK_32} from "../Icons";
 
 export function LogoutForm(ctx) {
   const state = new StateManager(ctx, "logout_form");
@@ -12,8 +12,6 @@ export function LogoutForm(ctx) {
   const [provider, __] = state.useSetting("login_provider");
 
   const providerIcon = {
-    google: BRAND_GOOGLE_32,
-    microsoft: BRAND_MICROSOFT_32,
     caldav: BRAND_NEXTCLOUD_32,
   }[provider];
 
