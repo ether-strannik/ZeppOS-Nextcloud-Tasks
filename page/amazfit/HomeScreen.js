@@ -148,6 +148,13 @@ class HomeScreen extends ConfiguredListScreen {
 
       this.cachedMode = false;
       this.hideSpinner();
+
+      // If returnToListPicker flag is set, navigate directly to TaskListPickerScreen
+      if (this.params.returnToListPicker) {
+        this.openTaskListPicker("online", true);
+        return;
+      }
+
       this.build();
     }).catch((error) => {
       this.onInitFailure(error instanceof Error ? error.message : error);

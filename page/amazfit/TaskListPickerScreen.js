@@ -1,4 +1,5 @@
 import { ConfiguredListScreen } from "../ConfiguredListScreen";
+import { AppGesture } from "../../lib/mmk/AppGesture";
 
 const { config, t, tasksProvider } = getApp()._options.globalData
 
@@ -66,6 +67,28 @@ Page({
   onInit(params) {
     hmUI.setStatusBarVisible(true);
     hmUI.updateStatusBarTitle("");
+
+    // Pull-to-refresh: double swipe down to sync (if enabled)
+    if (config.get("pullToRefresh", false)) {
+      let lastSwipe = 0;
+      AppGesture.init();
+      AppGesture.on("down", () => {
+        const now = Date.now();
+        if (now - lastSwipe < 1000) {
+          // Second swipe within 1 second - refresh all lists and tasks
+          hmUI.showToast({ text: t("Syncing...") });
+          hmApp.reloadPage({
+            url: "page/amazfit/HomeScreen",
+            param: JSON.stringify({ forceOnline: true, returnToListPicker: true })
+          });
+        } else {
+          // First swipe - show hint
+          hmUI.showToast({ text: t("Swipe again to sync") });
+          lastSwipe = now;
+        }
+        return true;
+      });
+    }
 
     new TaskListPickerScreen(params).build();
   }
