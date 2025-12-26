@@ -267,6 +267,12 @@ class TaskEditScreen extends ListScreen {
   saveStartDate(date) {
     if (this.isSaving) return;
 
+    // Validate: start date must be before due date
+    if (this.task.dueDate && date > this.task.dueDate) {
+      hmUI.showToast({ text: t("Start must be before due date") });
+      return;
+    }
+
     this.isSaving = true;
     this.startDateRow.setText(t("Saving…"));
     createSpinner();
@@ -307,6 +313,12 @@ class TaskEditScreen extends ListScreen {
 
   saveDueDate(date) {
     if (this.isSaving) return;
+
+    // Validate: due date must be after start date
+    if (this.task.startDate && date < this.task.startDate) {
+      hmUI.showToast({ text: t("Due must be after start date") });
+      return;
+    }
 
     this.isSaving = true;
     this.dueDateRow.setText(t("Saving…"));
