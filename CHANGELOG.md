@@ -63,7 +63,15 @@
 - **Microsoft To Do support**: Removed MicrosoftHandler, MicrosoftAuth, and related UI
 - **Google Tasks support**: Removed GoogleHandler, GoogleAuth, and related UI
 - **TickTick support**: Removed TickTickHandler, TickTickAuth, and related UI
+- **Translation support**: Removed all 20 language translations (app is now English-only)
+- **Donate functionality**: Removed donate button from About screen
 - App now exclusively supports Nextcloud/CalDAV
+
+### Rebranding
+- Renamed app to "Tasks NC"
+- Version reset to 1.0
+- Developer changed to ether-strannik
+- Added "Fork of ZeppTasks by melianmiko" credit
 
 ### Technical
 - Added `device:os.geolocation` permission

@@ -12,16 +12,15 @@ class AboutScreen extends BaseAboutScreen {
     this.debugLog = params.debugLog || null;
 
     this.appId = 1023438;
-    this.appName = "Tasks";
+    this.appName = "Tasks NC";
     this.version = VERSION;
-    this.donateUrl = `page/amazfit/DonatePage`;
-    this.donateText = t("Donate");
 
     this.iconSize = 100;
     this.iconFile = "icon_about.png";
 
     this.infoRows = [
-      ["melianmiko", "Developer"],
+      ["ether-strannik", "Developer"],
+      ["by melianmiko", "Fork of ZeppTasks"],
     ];
 
     this.uninstallText = t("Uninstall");

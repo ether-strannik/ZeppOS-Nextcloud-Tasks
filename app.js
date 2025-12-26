@@ -3,8 +3,6 @@ import {MessageBuilder} from './lib/zeppos/message'
 import {ConfigStorage} from "./lib/mmk/ConfigStorage";
 import {prepareFetch} from './lib/mmk/FetchForward';
 import {t} from "./lib/mmk/i18n";
-
-import "./page/Translations";
 import {TasksProvider} from "./src/TasksProvider";
 import {FsTools} from "./lib/mmk/Path";
 
