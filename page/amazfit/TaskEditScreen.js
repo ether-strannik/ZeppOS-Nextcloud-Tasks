@@ -11,7 +11,9 @@ class TaskEditScreen extends ListScreen {
     this.isSaving = false;
 
     param = JSON.parse(param);
-    this.task = tasksProvider.getTaskList(param.list_id).getTask(param.task_id);
+    this.listId = param.list_id;
+    this.taskId = param.task_id;
+    this.task = tasksProvider.getTaskList(this.listId).getTask(this.taskId);
   }
 
   init() {
@@ -65,6 +67,25 @@ class TaskEditScreen extends ListScreen {
         text: `${priorityLabel} (${this.task.priority})`,
         icon: "icon_s/edit.png",
         callback: () => this.showPriorityEditor()
+      });
+    }
+
+    // Categories section (CalDAV only - tasks with setCategories)
+    if (typeof this.task.setCategories === 'function') {
+      this.offset(16);
+      this.headline(t("Categories"));
+      const hasCategories = this.task.categories && this.task.categories.length > 0;
+      if (hasCategories) {
+        this.text({
+          text: this.task.categories.join(", "),
+          fontSize: this.fontSize - 2,
+          color: 0xAAAAAA
+        });
+      }
+      this.row({
+        text: hasCategories ? t("Edit categories") : t("Add categories"),
+        icon: "icon_s/edit.png",
+        callback: () => this.showCategoryPicker()
       });
     }
 
@@ -380,6 +401,17 @@ class TaskEditScreen extends ListScreen {
     this.priorityBoard.visible = true;
     hmApp.setLayerY(0);
     hmUI.setLayerScrolling(false);
+  }
+
+  showCategoryPicker() {
+    hmApp.gotoPage({
+      url: "page/amazfit/CategoryPickerScreen",
+      param: JSON.stringify({
+        listId: this.listId,
+        taskId: this.taskId,
+        currentCategories: this.task.categories || []
+      })
+    });
   }
 
   doDelete() {
