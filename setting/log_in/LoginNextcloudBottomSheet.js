@@ -50,10 +50,14 @@ export function LoginNextcloudBottomSheet(ctx, onCancel) {
   ])
 }
 
+// Default shared proxy URL
+const DEFAULT_PROXY_URL = "https://caldav-proxy-emn8.vercel.app";
+
 function NextcloudCredentialsForm(ctx, url) {
   const state = new StateManager(ctx, "nextcloud_credentials");
   const [login, setLogin] = state.useState("");
   const [password, setPassword] = state.useState("");
+  const [proxyUrl, setProxyUrl] = state.useState(DEFAULT_PROXY_URL);
   const [_, setTestConfig] = state.useSetting("caldav_validate", "");
   const [testResult, setTestResult] = state.useSetting("caldav_validate_result", false);
 
@@ -62,7 +66,7 @@ function NextcloudCredentialsForm(ctx, url) {
       return setTestResult(false);
 
     setTestResult("sus");
-    setTestConfig({host: url, user: login, password: password});
+    setTestConfig({host: url, user: login, password: password, proxyUrl: proxyUrl});
   }
 
   let credCheckStatus = "Checking, is login/password valid…";
@@ -93,11 +97,24 @@ function NextcloudCredentialsForm(ctx, url) {
         opacity: ".75",
         fontSize: ".7em",
       }),
+    ]),
+    TextRoot([
+      Paragraph(t("Proxy URL (for advanced users):")),
+    ]),
+    Input(t("Proxy URL"), proxyUrl, (v) => {
+      setProxyUrl(v || DEFAULT_PROXY_URL);
+    }),
+    TextRoot([
+      Paragraph([t("Default: " + DEFAULT_PROXY_URL)], {
+        opacity: ".5",
+        fontSize: ".6em",
+      }),
       testResult === true ? PrimaryButton(t("Save configuration"), () => {
-        ctx.settingsStorage.setItem("auth_token", JSON.stringify({
+        ctx.settingsStorage.setItem("access_token", JSON.stringify({
           host: url,
           user: login,
-          password: password
+          password: password,
+          proxyUrl: proxyUrl || DEFAULT_PROXY_URL
         }));
       }) : null,
     ]),

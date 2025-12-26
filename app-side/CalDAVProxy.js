@@ -1,8 +1,8 @@
 import {pjXML} from "../lib/pjxml";
 import {generateUUID} from "./UUID";
 
-// Shared CalDAV proxy URL - handles HTTP method translation for all users
-const PROXY_URL = "https://caldav-proxy-emn8.vercel.app";
+// Default proxy URL - can be overridden in settings
+const DEFAULT_PROXY_URL = "https://caldav-proxy-emn8.vercel.app";
 
 const PAYLOAD_GET_CALENDARS = "<x0:propfind xmlns:x0=\"DAV:\"><x0:prop><x0:displayname /><x1:supported-calendar-component-set xmlns:x1=\"urn:ietf:params:xml:ns:caldav\" /></x0:prop></x0:propfind>\n";
 // Get ALL tasks (no completion filter) - let client filter
@@ -63,7 +63,7 @@ export class CalDAVProxy {
 
   async request(method, path, body=undefined, headers={}) {
     // Build proxy URL with path
-    const proxyUrl = `${PROXY_URL}${path}`;
+    const proxyUrl = `${this.proxyUrl}${path}`;
     // Target host is the user's actual Nextcloud server
     const targetHost = this.config.host;
 
@@ -396,9 +396,14 @@ export class CalDAVProxy {
       if(this.config.host.endsWith("/"))
         this.config.host = this.config.host.substring(0, this.config.host.length -1);
       this.authHeader = "Basic " + btoa(`${this.config.user}:${this.config.password}`);
-      console.log("Load CalDAV config", this.config.host, this.config.user);
+      // Load proxy URL from config or use default
+      this.proxyUrl = this.config.proxyUrl || DEFAULT_PROXY_URL;
+      if(this.proxyUrl.endsWith("/"))
+        this.proxyUrl = this.proxyUrl.substring(0, this.proxyUrl.length -1);
+      console.log("Load CalDAV config", this.config.host, this.config.user, "proxy:", this.proxyUrl);
     } catch(e) {
       this.config = {};
+      this.proxyUrl = DEFAULT_PROXY_URL;
     }
   }
 
@@ -410,11 +415,11 @@ export class CalDAVProxy {
     if(!url.endsWith("remote.php/dav/"))
       url += "remote.php/dav/";
 
-    console.log("Trying", url, "via proxy");
+    console.log("Trying", url, "via proxy", this.proxyUrl);
     // Validate via proxy with X-Target-Host
     const resp = await fetch({
       method: "GET",
-      url: PROXY_URL + "/remote.php/dav/",
+      url: (this.proxyUrl || DEFAULT_PROXY_URL) + "/remote.php/dav/",
       headers: {
         "X-Target-Host": url.replace(/\/remote\.php\/dav\/$/, ""),
       }
@@ -435,7 +440,8 @@ export class CalDAVProxy {
     try {
       const authHeader = "Basic " + btoa(`${config.user}:${config.password}`);
       // Use proxy with X-Target-Host header
-      const proxyUrl = PROXY_URL + "/calendars/" + config.user + "/";
+      const proxyUrlBase = config.proxyUrl || this.proxyUrl || DEFAULT_PROXY_URL;
+      const proxyUrl = proxyUrlBase + "/calendars/" + config.user + "/";
       const resp = await fetch({
         method: "POST",
         url: proxyUrl,
