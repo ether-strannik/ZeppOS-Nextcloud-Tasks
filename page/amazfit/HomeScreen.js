@@ -104,7 +104,7 @@ class HomeScreen extends ConfiguredListScreen {
         this.currentList = this.taskLists[0];
       } else {
         this.currentList = this.findCurrentList();
-        if(!this.currentList) return this.openSettings("setup", true);
+        if(!this.currentList) return this.openTaskListPicker("setup", true);
       }
 
       return tasksProvider.execCachedLog();
@@ -198,14 +198,13 @@ class HomeScreen extends ConfiguredListScreen {
   }
 
   /**
-   * Open settings page (as new pane or replace current)
+   * Open task list picker (as new pane or replace current)
    */
-  openSettings(mode, replace = false) {
+  openTaskListPicker(mode, replace = false) {
     const params = {
-      url: `page/amazfit/SettingsScreen`,
+      url: `page/amazfit/TaskListPickerScreen`,
       param: JSON.stringify({
         lists: this.taskLists,
-        fromReplace: replace,
         mode
       })
     };
@@ -263,7 +262,7 @@ class HomeScreen extends ConfiguredListScreen {
         text: this.cachedMode ? getOfflineInfo(offlineInfo) : this.currentList.title,
         color: this.cachedMode ? 0xFF9900 : 0xFFFFFF,
         icon: `icon_s/mode_${this.cachedMode ? "cached" : "online"}.png`,
-        callback: () => this.openSettings(this.cachedMode ? "cached": "online")
+        callback: () => this.openTaskListPicker(this.cachedMode ? "cached": "online")
       },
       {
         text: t("New…"),
