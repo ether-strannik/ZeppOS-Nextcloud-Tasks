@@ -56,6 +56,13 @@ export class CalDAVProxy {
       case "replace_task":
         response = await this.replaceTask(request.id, request.rawData, request.etag);
         break;
+      // Calendar events
+      case "get_event_calendars":
+        response = await this.getEventCalendars();
+        break;
+      case "insert_event":
+        response = await this.insertEvent(request.calendarId, request.event);
+        break;
     }
 
     ctx.response({data: response});
@@ -329,6 +336,120 @@ export class CalDAVProxy {
     } catch(e) {
       console.log("CalDAV getTaskLists error:", e);
       return {error: `Connection failed: ${e.message || e}`};
+    }
+  }
+
+  async getEventCalendars() {
+    if(!this.config || !this.config.host) {
+      return {error: "Config not loaded. Please log in again."};
+    }
+    if(!this.authHeader) {
+      return {error: "Auth not configured. Please log in again."};
+    }
+
+    try {
+      const resp = await this.request("PROPFIND",
+        `/calendars/${this.config.user}/`,
+        PAYLOAD_GET_CALENDARS,
+        {
+          "Depth": "1",
+        });
+
+      if(resp.status >= 300) {
+        console.log("CalDAV getEventCalendars failed:", resp.status, resp.body);
+        return {error: `Server error ${resp.status}. Check credentials.`};
+      }
+      if(typeof resp.body !== "string") {
+        return {error: "Invalid server response"};
+      }
+
+      const basePath = this.config.host.substring(this.config.host.indexOf("/", "https://".length));
+
+      const xml = pjXML.parse(resp.body);
+      const output = [];
+      for(const node of xml.selectAll("//d:response")) {
+        const type = node.select("//cal:comp");
+        // Filter for VEVENT calendars (not VTODO)
+        if(!type.attributes || type.attributes.name !== "VEVENT") continue;
+
+        const id = node.select("//d:href").content[0].substring(basePath.length);
+        const title = node.select("//d:displayname").content[0];
+        output.push({id, title});
+      }
+
+      console.log("CalDAV getEventCalendars: found", output.length, "calendars");
+      return output;
+    } catch(e) {
+      console.log("CalDAV getEventCalendars error:", e);
+      return {error: `Connection failed: ${e.message || e}`};
+    }
+  }
+
+  async insertEvent(calendarId, event) {
+    if(!this.config || !this.config.host)
+      return {error: "Config not loaded"};
+    if(!this.authHeader)
+      return {error: "Auth not configured"};
+
+    try {
+      const eventFile = `${Math.round(Math.random() * 10e15)}-${Date.now()}.ics`;
+      const now = this.currentTimeString();
+
+      const vevent = {
+        "UID": generateUUID(),
+        "CREATED": now,
+        "LAST-MODIFIED": now,
+        "DTSTAMP": now,
+        "SUMMARY": event.title || "Untitled Event",
+      };
+
+      // Add start time (required)
+      if (event.dtstart) {
+        vevent["DTSTART"] = event.dtstart;
+      }
+
+      // Add end time
+      if (event.dtend) {
+        vevent["DTEND"] = event.dtend;
+      }
+
+      // Add optional fields
+      if (event.location) {
+        vevent["LOCATION"] = event.location;
+      }
+      if (event.description) {
+        vevent["DESCRIPTION"] = event.description;
+      }
+
+      const eventBody = this.js2ics({
+        "VCALENDAR": {
+          "VERSION": "2.0",
+          "PRODID": "-//Tasks NC for ZeppOS//",
+          "VEVENT": vevent
+        }
+      });
+
+      this.log("=== insertEvent ===");
+      this.log("Calendar: " + calendarId);
+      this.log("Body:\n" + eventBody);
+
+      const resp = await this.request("PUT",
+        calendarId + "/" + eventFile,
+        eventBody, {
+          "Depth": "0",
+          "Content-Type": "text/calendar; charset=UTF-8",
+        });
+
+      if(resp.status !== 201) {
+        this.log("FAILED " + resp.status);
+        return {error: `Failed to create event (${resp.status})`};
+      }
+
+      this.log("SUCCESS " + resp.status);
+      return {result: true};
+    } catch(e) {
+      console.log("CalDAV insertEvent error:", e);
+      return {error: `Failed to create event: ${e.message || e}`};
     }
   }
 

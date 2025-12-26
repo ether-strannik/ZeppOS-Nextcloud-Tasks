@@ -1,7 +1,7 @@
 import {ListScreen} from "../../lib/mmk/ListScreen";
 import {ScreenBoard} from "../../lib/mmk/ScreenBoard";
 import {DateTimePicker} from "../../lib/mmk/DateTimePicker";
-import {createSpinner, log, flushLog} from "../Utils";
+import {createSpinner, log, flushLog, request} from "../Utils";
 
 const { t, tasksProvider } = getApp()._options.globalData
 
@@ -171,6 +171,17 @@ class TaskEditScreen extends ListScreen {
         text: t("Add subtask"),
         icon: "icon_s/new.png",
         callback: () => this.showSubtaskEditor()
+      });
+    }
+
+    // Add to Calendar (CalDAV only)
+    if (this.task.uid) {
+      this.offset(16);
+      this.headline(t("Calendar"));
+      this.row({
+        text: t("Add to calendar"),
+        icon: "icon_s/calendar.png",
+        callback: () => this.showCalendarPicker()
       });
     }
 
@@ -717,6 +728,20 @@ class TaskEditScreen extends ListScreen {
     }).catch((e) => {
       this.isSaving = false;
       hmUI.showToast({ text: e.message || t("Failed to clear") });
+    });
+  }
+
+  showCalendarPicker() {
+    // Navigate to AddEventScreen with task data pre-filled
+    hmApp.gotoPage({
+      url: "page/amazfit/AddEventScreen",
+      param: JSON.stringify({
+        title: this.task.title,
+        startDate: this.task.startDate ? this.task.startDate.getTime() : null,
+        endDate: this.task.dueDate ? this.task.dueDate.getTime() : null,
+        location: this.task.location || "",
+        description: this.task.description || ""
+      })
     });
   }
 }
