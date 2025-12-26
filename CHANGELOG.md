@@ -26,6 +26,7 @@
 - Edit task priority (0-9)
 - **Edit start date** with visual calendar and numeric keypad time picker
 - **Edit due date** with visual calendar and numeric keypad time picker
+- **Date validation**: Prevents setting start date after due date (and vice versa)
 - Add subtasks (creates RELATED-TO link)
 - Add current GPS location
 - Clear location
@@ -37,9 +38,10 @@
 
 #### Debug System
 - File-based debug logger on watch (`log`, `flushLog`, `readLog`, `clearLog`)
-- Debug log viewer in Settings screen
-- Sync log to phone via Zepp app
-- Terminal-style scrollable log display in phone app Debug tab
+- **Phone-side CalDAV logging**: Request/response logging for debugging server issues
+- **Separate debug tabs**: Debug P (phone logs) and Debug W (watch logs)
+- Sync watch log to phone via Zepp app
+- Terminal-style scrollable log display with full-screen viewing area
 
 #### UI Features
 - **Reminder countdown**: Optional "8.5h" / "2d" badge for due dates
