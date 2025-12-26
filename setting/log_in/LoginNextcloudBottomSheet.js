@@ -101,7 +101,7 @@ function NextcloudCredentialsForm(ctx, url) {
         fontSize: ".6em",
       }),
       testResult === true ? PrimaryButton(t("Save configuration"), () => {
-        ctx.settingsStorage.setItem("access_token", JSON.stringify({
+        ctx.settingsStorage.setItem("auth_token", JSON.stringify({
           host: url,
           user: login,
           password: password,
