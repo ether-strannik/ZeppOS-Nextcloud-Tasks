@@ -27,9 +27,12 @@
 - **Edit start date** with visual calendar and numeric keypad time picker
 - **Edit due date** with visual calendar and numeric keypad time picker
 - **Date validation**: Prevents setting start date after due date (and vice versa)
+- **VALARM reminders**: Set task reminders with preset options (5min, 10min, 15min, 30min, 1h, 2h, 1d, 2d before)
 - Add subtasks (creates RELATED-TO link)
 - Add current GPS location
 - Clear location
+- **Stay on edit screen**: Saving any field keeps you on edit screen (allows multiple edits)
+- **Keyboard cancel**: Swipe back to close keyboard discards unsaved changes
 
 #### Date/Time Picker Components
 - **CalendarPicker**: Visual calendar grid with month navigation, today highlight, weekend colors

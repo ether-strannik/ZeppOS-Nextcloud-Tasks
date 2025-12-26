@@ -1,6 +1,7 @@
 import {ListScreen} from "../../lib/mmk/ListScreen";
 import {ScreenBoard} from "../../lib/mmk/ScreenBoard";
 import {DateTimePicker} from "../../lib/mmk/DateTimePicker";
+import {AppGesture} from "../../lib/mmk/AppGesture";
 import {createSpinner, log, flushLog, request} from "../Utils";
 
 const { t, config, tasksProvider } = getApp()._options.globalData
@@ -26,6 +27,16 @@ class TaskEditScreen extends ListScreen {
       console.log("Sync error:", e);
       hideSpinner();
       this.build();
+    });
+  }
+
+  /**
+   * Reload the edit screen to show updated data
+   */
+  reloadEditScreen() {
+    hmApp.reloadPage({
+      url: "page/amazfit/TaskEditScreen",
+      param: JSON.stringify({ list_id: this.listId, task_id: this.taskId })
     });
   }
 
@@ -341,7 +352,7 @@ class TaskEditScreen extends ListScreen {
         hmUI.showToast({ text: resp.error });
         return;
       }
-      hmApp.goBack();
+      this.reloadEditScreen();
     }).catch((e) => {
       this.isSaving = false;
       this.startDateRow.setText(this.task.startDate ? this.formatDateTime(this.task.startDate) : t("Not set"));
@@ -361,7 +372,7 @@ class TaskEditScreen extends ListScreen {
         hmUI.showToast({ text: resp.error });
         return;
       }
-      hmApp.goBack();
+      this.reloadEditScreen();
     }).catch((e) => {
       this.isSaving = false;
       hmUI.showToast({ text: e.message || t("Failed to clear") });
@@ -388,7 +399,7 @@ class TaskEditScreen extends ListScreen {
         hmUI.showToast({ text: resp.error });
         return;
       }
-      hmApp.goBack();
+      this.reloadEditScreen();
     }).catch((e) => {
       this.isSaving = false;
       this.dueDateRow.setText(this.task.dueDate ? this.formatDateTime(this.task.dueDate) : t("Not set"));
@@ -408,7 +419,7 @@ class TaskEditScreen extends ListScreen {
         hmUI.showToast({ text: resp.error });
         return;
       }
-      hmApp.goBack();
+      this.reloadEditScreen();
     }).catch((e) => {
       this.isSaving = false;
       hmUI.showToast({ text: e.message || t("Failed to clear") });
@@ -453,11 +464,7 @@ class TaskEditScreen extends ListScreen {
         hmUI.showToast({ text: resp.error });
         return;
       }
-      // Reload the page to show updated alarm
-      hmApp.reloadPage({
-        url: "page/amazfit/TaskEditScreen",
-        param: JSON.stringify({ listId: this.listId, taskId: this.taskId })
-      });
+      this.reloadEditScreen();
     }).catch((e) => {
       this.isSaving = false;
       if (this.alarmRow) {
@@ -479,7 +486,7 @@ class TaskEditScreen extends ListScreen {
         hmUI.showToast({ text: resp.error });
         return;
       }
-      hmApp.goBack();
+      this.reloadEditScreen();
     }).catch((e) => {
       this.isSaving = false;
       hmUI.showToast({ text: e.message || t("Failed to clear") });
@@ -508,6 +515,42 @@ class TaskEditScreen extends ListScreen {
     this.priorityBoard.visible = true;
     hmApp.setLayerY(0);
     hmUI.setLayerScrolling(false);
+  }
+
+  /**
+   * Hide any visible keyboard/picker, discard changes, and return true if one was hidden
+   */
+  hideKeyboardIfVisible() {
+    if (this.titleBoard && this.titleBoard.visible) {
+      this.titleBoard.visible = false;
+      this.titleBoard.value = this.task.title; // Discard changes
+      hmUI.setLayerScrolling(true);
+      return true;
+    }
+    if (this.notesBoard && this.notesBoard.visible) {
+      this.notesBoard.visible = false;
+      this.notesBoard.value = this.task.description || ""; // Discard changes
+      hmUI.setLayerScrolling(true);
+      return true;
+    }
+    if (this.subtaskBoard && this.subtaskBoard.visible) {
+      this.subtaskBoard.visible = false;
+      this.subtaskBoard.value = ""; // Clear for next time
+      hmUI.setLayerScrolling(true);
+      return true;
+    }
+    if (this.priorityBoard && this.priorityBoard.visible) {
+      this.priorityBoard.visible = false;
+      this.priorityBoard.value = this.task.priority.toString(); // Discard changes
+      hmUI.setLayerScrolling(true);
+      return true;
+    }
+    if (this.dateTimePicker) {
+      this.dateTimePicker = null;
+      hmUI.setLayerScrolling(true);
+      return true;
+    }
+    return false;
   }
 
   showCategoryPicker() {
@@ -563,7 +606,7 @@ class TaskEditScreen extends ListScreen {
         hmUI.showToast({ text: resp.error });
         return;
       }
-      hmApp.goBack();
+      this.reloadEditScreen();
     }).catch((e) => {
       this.isSaving = false;
       this.titleBoard.confirmButtonText = t("Save");
@@ -589,7 +632,7 @@ class TaskEditScreen extends ListScreen {
         hmUI.showToast({ text: resp.error });
         return;
       }
-      hmApp.goBack();
+      this.reloadEditScreen();
     }).catch((e) => {
       this.isSaving = false;
       this.notesBoard.confirmButtonText = t("Save");
@@ -615,7 +658,7 @@ class TaskEditScreen extends ListScreen {
         hmUI.showToast({ text: resp.error });
         return;
       }
-      hmApp.goBack();
+      this.reloadEditScreen();
     }).catch((e) => {
       this.isSaving = false;
       this.subtaskBoard.confirmButtonText = t("Create");
@@ -643,7 +686,7 @@ class TaskEditScreen extends ListScreen {
         hmUI.showToast({ text: resp.error });
         return;
       }
-      hmApp.goBack();
+      this.reloadEditScreen();
     }).catch((e) => {
       this.isSaving = false;
       this.priorityBoard.confirmButtonText = t("Save");
@@ -808,7 +851,7 @@ class TaskEditScreen extends ListScreen {
         hmUI.showToast({ text: resp.error });
         return;
       }
-      hmApp.goBack();
+      this.reloadEditScreen();
     }).catch((e) => {
       this.isSaving = false;
       this.locationRow.setText(this.task.geo ? t("Update location") : t("Add current location"));
@@ -828,7 +871,7 @@ class TaskEditScreen extends ListScreen {
         hmUI.showToast({ text: resp.error });
         return;
       }
-      hmApp.goBack();
+      this.reloadEditScreen();
     }).catch((e) => {
       this.isSaving = false;
       hmUI.showToast({ text: e.message || t("Failed to clear") });
@@ -860,8 +903,21 @@ Page({
     hmApp.setScreenKeep(true);
     hmSetting.setBrightScreen(15);
 
+    // Initialize gesture handler for back swipe
+    AppGesture.init();
+
     try {
-      new TaskEditScreen(params).init();
+      this.screen = new TaskEditScreen(params);
+
+      // Intercept back swipe to hide keyboard instead of navigating back
+      AppGesture.on("right", () => {
+        if (this.screen && this.screen.hideKeyboardIfVisible()) {
+          return true; // Prevent default back navigation
+        }
+        return false; // Allow default back navigation
+      });
+
+      this.screen.init();
     } catch(e) {
       console.log(e);
     }
