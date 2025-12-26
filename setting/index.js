@@ -5,7 +5,8 @@ import {TabButton} from "../lib/mmk/setting/Tabs";
 import {SETTINGS_32} from "../lib/mmk/setting/Icons";
 import {StateManager} from "../lib/mmk/setting/StateManager";
 import {ACCOUNT_32} from "./Icons";
-import {DebugTab} from "./tabs/DebugTab";
+import {DebugPhoneTab} from "./tabs/DebugPhoneTab";
+import {DebugWatchTab} from "./tabs/DebugWatchTab";
 
 AppSettingsPage({
   build(ctx) {
@@ -19,7 +20,8 @@ AppSettingsPage({
     // Build UI root
     return SettingsBody([
       tab === "account" ? AccountTab(ctx) : null,
-      tab === "debug" ? DebugTab(ctx) : null,
+      tab === "debug_phone" ? DebugPhoneTab(ctx) : null,
+      tab === "debug_watch" ? DebugWatchTab(ctx) : null,
       // TabOffset(),
       BottomToolbar([
         TabButton({
@@ -29,10 +31,16 @@ AppSettingsPage({
           callback: () => setTab("account"),
         }),
         TabButton({
-          text: "Debug",
+          text: "Debug P",
           icon: SETTINGS_32,
-          active: tab === "debug",
-          callback: () => setTab("debug"),
+          active: tab === "debug_phone",
+          callback: () => setTab("debug_phone"),
+        }),
+        TabButton({
+          text: "Debug W",
+          icon: SETTINGS_32,
+          active: tab === "debug_watch",
+          callback: () => setTab("debug_watch"),
         }),
       ]),
     ]);
