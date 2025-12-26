@@ -26,6 +26,8 @@ export class CalDAVTask {
       // Parse CATEGORIES (comma-separated string to array)
       const categoriesStr = vtodo.CATEGORIES || "";
       this.categories = categoriesStr ? categoriesStr.split(",").map(c => c.trim()) : [];
+      // Parse VALARM (reminder) - get minutes before due/start
+      this.alarm = this._parseAlarm(vtodo.VALARM);
     } else {
       this.title = "";
       this.description = "";
@@ -40,6 +42,7 @@ export class CalDAVTask {
       this.location = "";
       this.geo = null;
       this.categories = [];
+      this.alarm = null;
     }
 
     // Subtasks will be populated by CalDAVTaskList
@@ -124,6 +127,37 @@ export class CalDAVTask {
       }
     } catch (e) {
       console.log("Failed to parse GEO:", geo, e);
+    }
+    return null;
+  }
+
+  /**
+   * Parse VALARM component to get reminder minutes before due/start
+   * TRIGGER format: -PT15M (15 min before), -P1D (1 day before), -PT1H30M (1.5 hours before)
+   * Returns: minutes before (positive number) or null if no alarm
+   */
+  _parseAlarm(valarm) {
+    if (!valarm) return null;
+
+    try {
+      // VALARM can be an object or array of objects
+      const alarm = Array.isArray(valarm) ? valarm[0] : valarm;
+      if (!alarm || !alarm.TRIGGER) return null;
+
+      const trigger = alarm.TRIGGER.toString();
+
+      // Parse duration format: -PT15M, -P1D, -PT1H30M, etc.
+      // Negative means before the event/due date
+      const match = trigger.match(/^-?P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/);
+      if (!match) return null;
+
+      const days = parseInt(match[1], 10) || 0;
+      const hours = parseInt(match[2], 10) || 0;
+      const minutes = parseInt(match[3], 10) || 0;
+
+      return days * 24 * 60 + hours * 60 + minutes;
+    } catch (e) {
+      console.log("Failed to parse VALARM:", valarm, e);
     }
     return null;
   }
@@ -507,6 +541,82 @@ export class CalDAVTask {
     });
   }
 
+  /**
+   * Set task alarm/reminder
+   * @param {number|null} minutes - Minutes before due date (null to clear)
+   */
+  setAlarm(minutes) {
+    const vtodo = this.rawData?.VCALENDAR?.VTODO;
+    if (!vtodo) {
+      console.log("setAlarm: rawData not loaded");
+      return Promise.reject(new Error("Task data not loaded"));
+    }
+
+    console.log("setAlarm: updating to", minutes, "minutes before");
+
+    if (minutes !== null && minutes >= 0) {
+      this.alarm = minutes;
+      // Build VALARM component
+      // Convert minutes to ISO 8601 duration format
+      let trigger = "-P";
+      const days = Math.floor(minutes / (24 * 60));
+      const remainingMinutes = minutes % (24 * 60);
+      const hours = Math.floor(remainingMinutes / 60);
+      const mins = remainingMinutes % 60;
+
+      if (days > 0) {
+        trigger += days + "D";
+      }
+      if (hours > 0 || mins > 0 || days === 0) {
+        trigger += "T";
+        if (hours > 0) trigger += hours + "H";
+        if (mins > 0 || (hours === 0 && days === 0)) trigger += mins + "M";
+      }
+
+      vtodo.VALARM = {
+        ACTION: "DISPLAY",
+        TRIGGER: trigger,
+        DESCRIPTION: this.title || "Task reminder"
+      };
+    } else {
+      this.alarm = null;
+      delete vtodo.VALARM;
+    }
+
+    vtodo["LAST-MODIFIED"] = this.getCurrentTimeString();
+
+    return this._handler.messageBuilder.request({
+      package: "caldav_proxy",
+      action: "replace_task",
+      id: this.id,
+      rawData: this.rawData,
+      etag: this.etag,
+    }, {timeout: 8000}).then((resp) => {
+      console.log("setAlarm: response", JSON.stringify(resp));
+      this.etag = "";
+      return resp;
+    }).catch((e) => {
+      console.log("setAlarm: error", e);
+      throw e;
+    });
+  }
+
+  /**
+   * Format alarm minutes to human-readable string
+   * e.g., 15 -> "15 min", 60 -> "1 hour", 1440 -> "1 day"
+   */
+  formatAlarm() {
+    if (this.alarm === null) return null;
+    if (this.alarm === 0) return "At time";
+    if (this.alarm < 60) return this.alarm + " min";
+    if (this.alarm < 24 * 60) {
+      const hours = this.alarm / 60;
+      return hours === 1 ? "1 hour" : hours + " hours";
+    }
+    const days = this.alarm / (24 * 60);
+    return days === 1 ? "1 day" : days + " days";
+  }
+
   delete() {
     return this._handler.messageBuilder.request({
       package: "caldav_proxy",
@@ -539,6 +649,7 @@ export class CalDAVTask {
         this.geo = this._parseGeo(vtodo.GEO);
         const categoriesStr = vtodo.CATEGORIES || "";
         this.categories = categoriesStr ? categoriesStr.split(",").map(c => c.trim()) : [];
+        this.alarm = this._parseAlarm(vtodo.VALARM);
       }
     })
   }

@@ -3,7 +3,7 @@ import {ScreenBoard} from "../../lib/mmk/ScreenBoard";
 import {DateTimePicker} from "../../lib/mmk/DateTimePicker";
 import {createSpinner, log, flushLog, request} from "../Utils";
 
-const { t, tasksProvider } = getApp()._options.globalData
+const { t, config, tasksProvider } = getApp()._options.globalData
 
 class TaskEditScreen extends ListScreen {
   constructor(param) {
@@ -128,6 +128,30 @@ class TaskEditScreen extends ListScreen {
           text: t("Clear due date"),
           icon: "icon_s/delete.png",
           callback: () => this.clearDueDate()
+        });
+      }
+    }
+
+    // Reminder section (CalDAV only - tasks with setAlarm)
+    if (typeof this.task.setAlarm === 'function') {
+      // Check if returning from reminder picker with a selection
+      this.checkReminderSelection();
+
+      this.offset(16);
+      this.headline(t("Reminder"));
+      const alarmText = this.task.alarm !== null
+        ? (this.task.formatAlarm ? this.task.formatAlarm() : this.task.alarm + " min")
+        : t("Not set");
+      this.alarmRow = this.row({
+        text: alarmText,
+        icon: "icon_s/edit.png",
+        callback: () => this.showReminderPicker()
+      });
+      if (this.task.alarm !== null) {
+        this.row({
+          text: t("Clear reminder"),
+          icon: "icon_s/delete.png",
+          callback: () => this.clearAlarm()
         });
       }
     }
@@ -379,6 +403,77 @@ class TaskEditScreen extends ListScreen {
     createSpinner();
 
     this.task.setDueDate(null).then((resp) => {
+      if (resp && resp.error) {
+        this.isSaving = false;
+        hmUI.showToast({ text: resp.error });
+        return;
+      }
+      hmApp.goBack();
+    }).catch((e) => {
+      this.isSaving = false;
+      hmUI.showToast({ text: e.message || t("Failed to clear") });
+    });
+  }
+
+  /**
+   * Open reminder picker screen
+   */
+  showReminderPicker() {
+    hmApp.gotoPage({
+      url: "page/amazfit/ReminderPickerScreen",
+      param: JSON.stringify({
+        listId: this.listId,
+        taskId: this.taskId,
+        currentAlarm: this.task.alarm
+      })
+    });
+  }
+
+  /**
+   * Check if a reminder was selected and save it
+   */
+  checkReminderSelection() {
+    const selection = config.get("_selectedReminder");
+    if (!selection || selection.taskId !== this.taskId) return;
+
+    // Clear the selection
+    config.set("_selectedReminder", null);
+
+    // Save the alarm
+    this.isSaving = true;
+    if (this.alarmRow) this.alarmRow.setText(t("Saving…"));
+    createSpinner();
+
+    this.task.setAlarm(selection.minutes).then((resp) => {
+      if (resp && resp.error) {
+        this.isSaving = false;
+        if (this.alarmRow) {
+          this.alarmRow.setText(this.task.formatAlarm ? this.task.formatAlarm() : t("Not set"));
+        }
+        hmUI.showToast({ text: resp.error });
+        return;
+      }
+      // Reload the page to show updated alarm
+      hmApp.reloadPage({
+        url: "page/amazfit/TaskEditScreen",
+        param: JSON.stringify({ listId: this.listId, taskId: this.taskId })
+      });
+    }).catch((e) => {
+      this.isSaving = false;
+      if (this.alarmRow) {
+        this.alarmRow.setText(this.task.formatAlarm ? this.task.formatAlarm() : t("Not set"));
+      }
+      hmUI.showToast({ text: e.message || t("Failed to save") });
+    });
+  }
+
+  clearAlarm() {
+    if (this.isSaving) return;
+
+    this.isSaving = true;
+    createSpinner();
+
+    this.task.setAlarm(null).then((resp) => {
       if (resp && resp.error) {
         this.isSaving = false;
         hmUI.showToast({ text: resp.error });

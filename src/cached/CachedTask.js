@@ -7,6 +7,7 @@ export class CachedTask {
         this.location = data.location || "";
         this.geo = data.geo || null;
         this.categories = data.categories || [];
+        this.alarm = data.alarm !== undefined ? data.alarm : null;
 
         this.config = config;
         this.withLog = withLog;
@@ -86,6 +87,36 @@ export class CachedTask {
         this.config.update({tasks, log});
         this.categories = value || [];
         return Promise.resolve();
+    }
+
+    setAlarm(value) {
+        const tasks = this.config.get("tasks");
+        const log = this.config.get("log", []);
+
+        const i = this._getSelfIndex(tasks);
+        tasks[i].alarm = value;
+
+        if(this.withLog)
+            log.push({command: "set_alarm", id: this.id, value});
+
+        this.config.update({tasks, log});
+        this.alarm = value;
+        return Promise.resolve();
+    }
+
+    /**
+     * Format alarm minutes to human-readable string
+     */
+    formatAlarm() {
+        if (this.alarm === null) return null;
+        if (this.alarm === 0) return "At time";
+        if (this.alarm < 60) return this.alarm + " min";
+        if (this.alarm < 24 * 60) {
+            const hours = this.alarm / 60;
+            return hours === 1 ? "1 hour" : hours + " hours";
+        }
+        const days = this.alarm / (24 * 60);
+        return days === 1 ? "1 day" : days + " days";
     }
 
     delete() {

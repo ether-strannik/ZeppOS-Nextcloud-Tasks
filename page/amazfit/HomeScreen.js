@@ -198,6 +198,7 @@ class HomeScreen extends ConfiguredListScreen {
       inProgress: task.inProgress || false,
       dueDate: task.dueDate ? task.dueDate.getTime() : null,  // Store as timestamp
       categories: task.categories || [],
+      alarm: task.alarm !== undefined ? task.alarm : null,
       subtasks: (task.subtasks || []).map(cacheTask)
     });
 

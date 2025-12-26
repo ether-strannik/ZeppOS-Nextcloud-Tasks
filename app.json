@@ -41,6 +41,7 @@
             "page/amazfit/NewNoteScreen",
             "page/amazfit/TaskEditScreen",
             "page/amazfit/CategoryPickerScreen",
+            "page/amazfit/ReminderPickerScreen",
             "page/amazfit/AddEventScreen",
             "page/amazfit/DonatePage"
           ]
@@ -97,6 +98,7 @@
             "page/amazfit/NewNoteScreen",
             "page/amazfit/TaskEditScreen",
             "page/amazfit/CategoryPickerScreen",
+            "page/amazfit/ReminderPickerScreen",
             "page/amazfit/AddEventScreen",
             "page/amazfit/DonatePage"
           ]
@@ -137,6 +139,7 @@
             "page/amazfit/NewNoteScreen",
             "page/amazfit/TaskEditScreen",
             "page/amazfit/CategoryPickerScreen",
+            "page/amazfit/ReminderPickerScreen",
             "page/amazfit/AddEventScreen",
             "page/amazfit/DonatePage"
           ]
@@ -177,6 +180,7 @@
             "page/amazfit/NewNoteScreen",
             "page/amazfit/TaskEditScreen",
             "page/amazfit/CategoryPickerScreen",
+            "page/amazfit/ReminderPickerScreen",
             "page/amazfit/AddEventScreen",
             "page/amazfit/DonatePage"
           ]
@@ -213,6 +217,7 @@
             "page/amazfit/NewNoteScreen",
             "page/amazfit/TaskEditScreen",
             "page/amazfit/CategoryPickerScreen",
+            "page/amazfit/ReminderPickerScreen",
             "page/amazfit/AddEventScreen",
             "page/amazfit/DonatePage"
           ]
@@ -273,6 +278,7 @@
             "page/amazfit/NewNoteScreen",
             "page/amazfit/TaskEditScreen",
             "page/amazfit/CategoryPickerScreen",
+            "page/amazfit/ReminderPickerScreen",
             "page/amazfit/AddEventScreen",
             "page/amazfit/DonatePage"
           ]
@@ -313,6 +319,7 @@
             "page/amazfit/NewNoteScreen",
             "page/amazfit/TaskEditScreen",
             "page/amazfit/CategoryPickerScreen",
+            "page/amazfit/ReminderPickerScreen",
             "page/amazfit/AddEventScreen",
             "page/amazfit/DonatePage"
           ]
@@ -349,6 +356,7 @@
             "page/amazfit/NewNoteScreen",
             "page/amazfit/TaskEditScreen",
             "page/amazfit/CategoryPickerScreen",
+            "page/amazfit/ReminderPickerScreen",
             "page/amazfit/AddEventScreen",
             "page/amazfit/DonatePage"
           ]
@@ -389,6 +397,7 @@
             "page/amazfit/NewNoteScreen",
             "page/amazfit/TaskEditScreen",
             "page/amazfit/CategoryPickerScreen",
+            "page/amazfit/ReminderPickerScreen",
             "page/amazfit/AddEventScreen",
             "page/amazfit/DonatePage"
           ]
@@ -429,6 +438,7 @@
             "page/amazfit/NewNoteScreen",
             "page/amazfit/TaskEditScreen",
             "page/amazfit/CategoryPickerScreen",
+            "page/amazfit/ReminderPickerScreen",
             "page/amazfit/AddEventScreen",
             "page/amazfit/DonatePage"
           ]
@@ -465,6 +475,7 @@
             "page/amazfit/NewNoteScreen",
             "page/amazfit/TaskEditScreen",
             "page/amazfit/CategoryPickerScreen",
+            "page/amazfit/ReminderPickerScreen",
             "page/amazfit/AddEventScreen",
             "page/amazfit/DonatePage"
           ]
@@ -501,6 +512,7 @@
             "page/amazfit/NewNoteScreen",
             "page/amazfit/TaskEditScreen",
             "page/amazfit/CategoryPickerScreen",
+            "page/amazfit/ReminderPickerScreen",
             "page/amazfit/AddEventScreen",
             "page/amazfit/DonatePage"
           ]
@@ -551,6 +563,7 @@
             "page/amazfit/NewNoteScreen",
             "page/amazfit/TaskEditScreen",
             "page/amazfit/CategoryPickerScreen",
+            "page/amazfit/ReminderPickerScreen",
             "page/amazfit/AddEventScreen",
             "page/amazfit/DonatePage"
           ]
@@ -587,6 +600,7 @@
             "page/amazfit/NewNoteScreen",
             "page/amazfit/TaskEditScreen",
             "page/amazfit/CategoryPickerScreen",
+            "page/amazfit/ReminderPickerScreen",
             "page/amazfit/AddEventScreen",
             "page/amazfit/DonatePage"
           ]
@@ -613,6 +627,7 @@
             "page/amazfit/NewNoteScreen",
             "page/amazfit/TaskEditScreen",
             "page/amazfit/CategoryPickerScreen",
+            "page/amazfit/ReminderPickerScreen",
             "page/amazfit/AddEventScreen",
             "page/amazfit/DonatePage"
           ]
@@ -649,6 +664,7 @@
             "page/amazfit/NewNoteScreen",
             "page/amazfit/TaskEditScreen",
             "page/amazfit/CategoryPickerScreen",
+            "page/amazfit/ReminderPickerScreen",
             "page/amazfit/AddEventScreen",
             "page/amazfit/DonatePage"
           ]
@@ -695,6 +711,7 @@
             "page/amazfit/NewNoteScreen",
             "page/amazfit/TaskEditScreen",
             "page/amazfit/CategoryPickerScreen",
+            "page/amazfit/ReminderPickerScreen",
             "page/amazfit/AddEventScreen",
             "page/amazfit/DonatePage"
           ]
@@ -731,6 +748,7 @@
             "page/amazfit/NewNoteScreen",
             "page/amazfit/TaskEditScreen",
             "page/amazfit/CategoryPickerScreen",
+            "page/amazfit/ReminderPickerScreen",
             "page/amazfit/AddEventScreen",
             "page/amazfit/DonatePage"
           ]
@@ -767,6 +785,7 @@
             "page/amazfit/NewNoteScreen",
             "page/amazfit/TaskEditScreen",
             "page/amazfit/CategoryPickerScreen",
+            "page/amazfit/ReminderPickerScreen",
             "page/amazfit/AddEventScreen",
             "page/amazfit/DonatePage"
           ]
@@ -803,6 +822,7 @@
             "page/amazfit/NewNoteScreen",
             "page/amazfit/TaskEditScreen",
             "page/amazfit/CategoryPickerScreen",
+            "page/amazfit/ReminderPickerScreen",
             "page/amazfit/AddEventScreen",
             "page/amazfit/DonatePage"
           ]
@@ -835,6 +855,7 @@
             "page/amazfit/NewNoteScreen",
             "page/amazfit/TaskEditScreen",
             "page/amazfit/CategoryPickerScreen",
+            "page/amazfit/ReminderPickerScreen",
             "page/amazfit/AddEventScreen",
             "page/amazfit/DonatePage"
           ]
@@ -875,6 +896,7 @@
             "page/amazfit/NewNoteScreen",
             "page/amazfit/TaskEditScreen",
             "page/amazfit/CategoryPickerScreen",
+            "page/amazfit/ReminderPickerScreen",
             "page/amazfit/AddEventScreen",
             "page/amazfit/DonatePage"
           ]
@@ -911,6 +933,7 @@
             "page/amazfit/NewNoteScreen",
             "page/amazfit/TaskEditScreen",
             "page/amazfit/CategoryPickerScreen",
+            "page/amazfit/ReminderPickerScreen",
             "page/amazfit/AddEventScreen",
             "page/amazfit/DonatePage"
           ]
@@ -947,6 +970,7 @@
             "page/amazfit/NewNoteScreen",
             "page/amazfit/TaskEditScreen",
             "page/amazfit/CategoryPickerScreen",
+            "page/amazfit/ReminderPickerScreen",
             "page/amazfit/AddEventScreen",
             "page/amazfit/DonatePage"
           ]
@@ -983,6 +1007,7 @@
             "page/amazfit/NewNoteScreen",
             "page/amazfit/TaskEditScreen",
             "page/amazfit/CategoryPickerScreen",
+            "page/amazfit/ReminderPickerScreen",
             "page/amazfit/AddEventScreen",
             "page/amazfit/DonatePage"
           ]
@@ -1023,6 +1048,7 @@
             "page/amazfit/NewNoteScreen",
             "page/amazfit/TaskEditScreen",
             "page/amazfit/CategoryPickerScreen",
+            "page/amazfit/ReminderPickerScreen",
             "page/amazfit/AddEventScreen",
             "page/amazfit/DonatePage"
           ]
@@ -1063,6 +1089,7 @@
             "page/amazfit/NewNoteScreen",
             "page/amazfit/TaskEditScreen",
             "page/amazfit/CategoryPickerScreen",
+            "page/amazfit/ReminderPickerScreen",
             "page/amazfit/AddEventScreen",
             "page/amazfit/DonatePage"
           ]
@@ -1103,6 +1130,7 @@
             "page/amazfit/NewNoteScreen",
             "page/amazfit/TaskEditScreen",
             "page/amazfit/CategoryPickerScreen",
+            "page/amazfit/ReminderPickerScreen",
             "page/amazfit/AddEventScreen",
             "page/amazfit/DonatePage"
           ]
