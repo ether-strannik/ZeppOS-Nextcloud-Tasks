@@ -332,6 +332,7 @@ export class CalDAVProxy {
       }
 
       console.log("CalDAV getTaskLists: found", output.length, "lists");
+      output.forEach(l => console.log("  List:", l.id, "->", l.title));
       return output;
     } catch(e) {
       console.log("CalDAV getTaskLists error:", e);
