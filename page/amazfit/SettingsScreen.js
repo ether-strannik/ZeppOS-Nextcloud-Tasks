@@ -17,7 +17,7 @@ class SettingsScreen extends ConfiguredListScreen {
   }
 
   build() {
-    // UI settings
+    // User interface
     this.headline(t("User interface:"));
     this.row({
       text: t("Font size…"),
@@ -33,6 +33,10 @@ class SettingsScreen extends ConfiguredListScreen {
         url: `page/amazfit/ScreenBoardSetup`
       })
     });
+
+    // Additional features
+    this.offset(16);
+    this.headline(t("Additional features:"));
     if(this.mode !== "cached" && tasksProvider && !tasksProvider.cantListCompleted) {
       this.row({
         text: t("Show complete tasks"),
@@ -68,19 +72,23 @@ class SettingsScreen extends ConfiguredListScreen {
         hmApp.goBack();
       }
     });
-    this.row({
-      text: t("Pull down to refresh"),
-      icon: `icon_s/cb_${config.get("pullToRefresh", false)}.png`,
-      callback: () => {
-        config.set("pullToRefresh", !config.get("pullToRefresh", false));
-        hmApp.goBack();
-      }
-    });
+
+    // Synchronization settings
+    this.offset(16);
+    this.headline(t("Synchronization:"));
     this.row({
       text: t("Work offline"),
       icon: `icon_s/cb_${config.get("offlineMode", false)}.png`,
       callback: () => {
         config.set("offlineMode", !config.get("offlineMode", false));
+        hmApp.goBack();
+      }
+    });
+    this.row({
+      text: t("Pull down to refresh"),
+      icon: `icon_s/cb_${config.get("pullToRefresh", false)}.png`,
+      callback: () => {
+        config.set("pullToRefresh", !config.get("pullToRefresh", false));
         hmApp.goBack();
       }
     });
@@ -95,6 +103,7 @@ class SettingsScreen extends ConfiguredListScreen {
     });
 
     // Advanced settings
+    this.offset(16);
     this.headline(t("Advanced:"));
     if(config.get("forever_offline", false)) {
       this.row({
@@ -113,6 +122,10 @@ class SettingsScreen extends ConfiguredListScreen {
       fontSize: this.fontSize - 2,
       color: 0x999999
     });
+
+    // About
+    this.offset(16);
+    this.buildHelpItems();
 
     // Debug section
     this.offset(16);
@@ -139,9 +152,6 @@ class SettingsScreen extends ConfiguredListScreen {
         });
       }
     });
-
-    // About section at the bottom
-    this.buildHelpItems();
 
     this.offset();
   }
