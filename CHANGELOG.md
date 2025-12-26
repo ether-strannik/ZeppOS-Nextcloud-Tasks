@@ -23,7 +23,7 @@
 #### Enhanced Edit Screen
 - Edit task title
 - Edit task description/notes
-- Edit task priority (0-9)
+- Edit task priority (0-9) with grid-based picker
 - **Edit start date** with visual calendar and numeric keypad time picker
 - **Edit due date** with visual calendar and numeric keypad time picker
 - **Date validation**: Prevents setting start date after due date (and vice versa)

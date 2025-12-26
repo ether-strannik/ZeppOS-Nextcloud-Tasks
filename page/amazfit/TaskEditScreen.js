@@ -1,6 +1,7 @@
 import {ListScreen} from "../../lib/mmk/ListScreen";
 import {ScreenBoard} from "../../lib/mmk/ScreenBoard";
 import {DateTimePicker} from "../../lib/mmk/DateTimePicker";
+import {PriorityPicker} from "../../lib/mmk/PriorityPicker";
 import {AppGesture} from "../../lib/mmk/AppGesture";
 import {createSpinner, log, flushLog, request} from "../Utils";
 
@@ -256,15 +257,8 @@ class TaskEditScreen extends ListScreen {
       this.subtaskBoard.visible = false;
     }
 
-    // Setup keyboard for priority editing (CalDAV only)
-    if (typeof this.task.setPriority === 'function') {
-      this.priorityBoard = new ScreenBoard();
-      this.priorityBoard.title = t("Priority (0-9)");
-      this.priorityBoard.value = this.task.priority.toString();
-      this.priorityBoard.confirmButtonText = t("Save");
-      this.priorityBoard.onConfirm = (v) => this.doOverridePriority(v);
-      this.priorityBoard.visible = false;
-    }
+    // Priority picker will be created on demand
+    this.priorityPicker = null;
   }
 
   /**
@@ -512,9 +506,22 @@ class TaskEditScreen extends ListScreen {
   }
 
   showPriorityEditor() {
-    this.priorityBoard.visible = true;
+    this.priorityPicker = new PriorityPicker({
+      initialPriority: this.task.priority,
+      onConfirm: (priority) => this.doOverridePriority(priority),
+      onCancel: () => this.hidePriorityPicker()
+    });
+    this.priorityPicker.render();
     hmApp.setLayerY(0);
     hmUI.setLayerScrolling(false);
+  }
+
+  hidePriorityPicker() {
+    if (this.priorityPicker) {
+      this.priorityPicker.destroy();
+      this.priorityPicker = null;
+      hmUI.setLayerScrolling(true);
+    }
   }
 
   /**
@@ -539,10 +546,8 @@ class TaskEditScreen extends ListScreen {
       hmUI.setLayerScrolling(true);
       return true;
     }
-    if (this.priorityBoard && this.priorityBoard.visible) {
-      this.priorityBoard.visible = false;
-      this.priorityBoard.value = this.task.priority.toString(); // Discard changes
-      hmUI.setLayerScrolling(true);
+    if (this.priorityPicker) {
+      this.hidePriorityPicker();
       return true;
     }
     if (this.dateTimePicker) {
@@ -666,30 +671,23 @@ class TaskEditScreen extends ListScreen {
     });
   }
 
-  doOverridePriority(value) {
+  doOverridePriority(priority) {
     if(this.isSaving) return;
 
-    // Parse and validate priority
-    const priority = parseInt(value, 10);
-    if (isNaN(priority) || priority < 0 || priority > 9) {
-      hmUI.showToast({ text: t("Enter 0-9") });
-      return;
-    }
-
+    // Hide picker and show spinner
+    this.hidePriorityPicker();
     this.isSaving = true;
-    this.priorityBoard.confirmButtonText = t("Saving…");
+    createSpinner();
 
     this.task.setPriority(priority).then((resp) => {
       if (resp && resp.error) {
         this.isSaving = false;
-        this.priorityBoard.confirmButtonText = t("Save");
         hmUI.showToast({ text: resp.error });
         return;
       }
       this.reloadEditScreen();
     }).catch((e) => {
       this.isSaving = false;
-      this.priorityBoard.confirmButtonText = t("Save");
       hmUI.showToast({ text: e.message || t("Failed to save") });
     });
   }
