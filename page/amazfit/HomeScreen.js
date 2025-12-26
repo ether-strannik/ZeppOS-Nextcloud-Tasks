@@ -1,6 +1,6 @@
 import {ICON_SIZE_MEDIUM, ICON_SIZE_SMALL, SCREEN_MARGIN_Y, SCREEN_WIDTH, WIDGET_WIDTH} from "../../lib/mmk/UiParams";
 
-import {createSpinner, getOfflineInfo} from "../Utils";
+import {createSpinner, getOfflineInfo, log, flushLog} from "../Utils";
 import {ConfiguredListScreen} from "../ConfiguredListScreen";
 import {TouchEventManager} from "../../lib/mmk/TouchEventManager";
 import {AppGesture} from "../../lib/mmk/AppGesture";
@@ -74,6 +74,31 @@ class HomeScreen extends ConfiguredListScreen {
       return tasksProvider.getTaskLists();
     }).then((lists) => {
       this.taskLists = lists;
+
+      // Sync cached lists with server - add new lists, remove deleted ones
+      if (!config.get("forever_offline")) {
+        const cachedLists = config.get("cachedLists", []);
+        log("=== List Sync ===");
+        log("Server lists:", lists.length);
+        log("Cached lists:", cachedLists.length);
+
+        // Build new cached lists array matching server
+        const newCachedLists = lists.map(serverList => {
+          // Find existing cached data for this list
+          const cached = cachedLists.find(c => c.id === serverList.id);
+          if (cached) {
+            // Keep cached tasks, update title
+            return { ...cached, title: serverList.title };
+          } else {
+            // New list - add with empty tasks
+            return { id: serverList.id, title: serverList.title, tasks: [] };
+          }
+        });
+
+        log("New cached lists:", newCachedLists.length);
+        config.update({ cachedLists: newCachedLists });
+        flushLog();
+      }
 
       if(config.get("forever_offline")) {
         this.currentList = this.taskLists[0];
