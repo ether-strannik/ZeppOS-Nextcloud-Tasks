@@ -63,6 +63,13 @@
 - **HomeScreen display**: Optional [#tag] badge showing first category
 - **Settings toggle**: Show/hide category tags on task list
 
+#### Add to Calendar
+- **Create calendar events from tasks**: Add task as VEVENT to any calendar
+- **Pre-filled data**: Title, start/end dates, description from task
+- **GPS location capture**: Capture current location for event
+- **Calendar picker**: Select target calendar (cycles through available calendars)
+- **DateTimePicker**: Visual date and time selection for event times
+
 #### Settings Toggles
 - Show reminder countdown
 - Show categories
@@ -76,10 +83,15 @@
 - **X-Target-Host header**: User's Nextcloud URL passed dynamically
 - **Configurable proxy URL**: Advanced users can host their own proxy
 
+#### UX Improvements
+- **Double-tap to delete**: Task deletion requires confirmation (tap twice)
+- **Cached list sync**: Task lists now sync with server on refresh (adds new lists, removes deleted)
+
 ### Fixed
 - **Login save button**: Fixed "Save configuration" not working after credential validation
 - **iCalendar newline escaping**: Fixed 415 error when saving tasks with multi-line descriptions
 - **Clear debug log**: Now clears both watch and phone logs
+- **Stale cached lists**: Fixed old task lists persisting after deletion on server
 
 ### Changed
 - Revised task row display with notes indicator icon
