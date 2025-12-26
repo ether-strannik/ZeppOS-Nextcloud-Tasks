@@ -413,11 +413,11 @@ class HomeScreen extends ConfiguredListScreen {
     // Add category tag badge if enabled and task has categories
     if (config.get("showCategories", false) && data.categories && data.categories.length > 0) {
       const tagText = "#" + data.categories[0];
-      const tagPadding = 6;
-      const tagFontSize = 14;
-      const tagCharWidth = 7;  // Approximate character width
+      const tagPadding = 10;
+      const tagFontSize = 22;
+      const tagCharWidth = 11;  // Approximate character width
       const tagWidth = tagText.length * tagCharWidth + tagPadding * 2;
-      const tagHeight = 20;
+      const tagHeight = 28;
       // Position to the left of notes icon (if present) or right side
       const hasNotes = data.description && data.description.trim().length > 0;
       const tagX = WIDGET_WIDTH - tagWidth - (hasNotes ? ICON_SIZE_SMALL + 16 : 8);
