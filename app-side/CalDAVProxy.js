@@ -1,6 +1,9 @@
 import {pjXML} from "../lib/pjxml";
 import {generateUUID} from "./UUID";
 
+// Shared CalDAV proxy URL - handles HTTP method translation for all users
+const PROXY_URL = "https://caldav-proxy.vercel.app";
+
 const PAYLOAD_GET_CALENDARS = "<x0:propfind xmlns:x0=\"DAV:\"><x0:prop><x0:displayname /><x1:supported-calendar-component-set xmlns:x1=\"urn:ietf:params:xml:ns:caldav\" /></x0:prop></x0:propfind>\n";
 // Get ALL tasks (no completion filter) - let client filter
 const PAYLOAD_GET_ALL_TASKS = "<x1:calendar-query xmlns:x1=\"urn:ietf:params:xml:ns:caldav\"><x0:prop xmlns:x0=\"DAV:\"><x0:getetag/><x1:calendar-data/></x0:prop><x1:filter><x1:comp-filter name=\"VCALENDAR\"><x1:comp-filter name=\"VTODO\"/></x1:comp-filter></x1:filter></x1:calendar-query>\n";
@@ -59,17 +62,22 @@ export class CalDAVProxy {
   }
 
   async request(method, path, body=undefined, headers={}) {
-    const url = `${this.config.host}${path}`;
-    console.log(`CalDAV ${method} ${url}`);
+    // Build proxy URL with path
+    const proxyUrl = `${PROXY_URL}${path}`;
+    // Target host is the user's actual Nextcloud server
+    const targetHost = this.config.host;
+
+    console.log(`CalDAV ${method} ${proxyUrl} -> ${targetHost}`);
 
     try {
       const resp = await fetch({
         method: method === "GET" ? method : "POST",
-        url: url,
+        url: proxyUrl,
         headers: {
           "Content-Type": "application/xml; charset=utf-8",
           "Authorization": this.authHeader,
           "X-HTTP-Method-Override": method,
+          "X-Target-Host": targetHost,
           "Cookie": "",
           ...headers,
         },
@@ -402,8 +410,15 @@ export class CalDAVProxy {
     if(!url.endsWith("remote.php/dav/"))
       url += "remote.php/dav/";
 
-    console.log("Trying", url);
-    const resp = await fetch(url);
+    console.log("Trying", url, "via proxy");
+    // Validate via proxy with X-Target-Host
+    const resp = await fetch({
+      method: "GET",
+      url: PROXY_URL + "/remote.php/dav/",
+      headers: {
+        "X-Target-Host": url.replace(/\/remote\.php\/dav\/$/, ""),
+      }
+    });
     if(resp.status !== 401 && resp.status !== 400) {
       console.log("Reject this url", resp.status);
       settings.settingsStorage.setItem("nextcloud_url_valid", "false");
@@ -419,13 +434,16 @@ export class CalDAVProxy {
     console.log("Validating CalDAV config:", config);
     try {
       const authHeader = "Basic " + btoa(`${config.user}:${config.password}`);
+      // Use proxy with X-Target-Host header
+      const proxyUrl = PROXY_URL + "/calendars/" + config.user + "/";
       const resp = await fetch({
         method: "POST",
-        url: config.host + "calendars/" + config.user + "/",
+        url: proxyUrl,
         headers: {
           "Content-Type": "application/xml; charset=utf-8",
           "Authorization": authHeader,
           "X-HTTP-Method-Override": "PROPFIND",
+          "X-Target-Host": config.host,
           "Depth": "0",
         }
       });
