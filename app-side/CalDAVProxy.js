@@ -384,9 +384,14 @@ export class CalDAVProxy {
   }
 
   icsEscape(v) {
-    const symbols = ["\\", ",", "\"", "\'", ","]; // to be filled
-    for(const s of symbols)
-      v = v.replaceAll(s, "\\" + s);
+    // Escape special characters in iCalendar TEXT values
+    // Note: Commas are NOT escaped - they are valid list delimiters (e.g., CATEGORIES)
+    // Backslash must be escaped first (before other escapes add more backslashes)
+    v = v.replaceAll("\\", "\\\\");
+    // Escape newlines as literal \n (required by iCalendar spec)
+    v = v.replaceAll("\r\n", "\\n");
+    v = v.replaceAll("\n", "\\n");
+    v = v.replaceAll("\r", "\\n");
     return v;
   }
 

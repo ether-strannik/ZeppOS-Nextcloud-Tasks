@@ -148,7 +148,10 @@ class CategoryPickerScreen extends ConfiguredListScreen {
 
     const hideSpinner = createSpinner();
 
-    task.setCategories(this.selected).then((resp) => {
+    // Sync task first to load rawData, then set categories
+    task.sync().then(() => {
+      return task.setCategories(this.selected);
+    }).then((resp) => {
       hideSpinner();
       if (resp && resp.error) {
         hmUI.showToast({ text: resp.error });

@@ -63,6 +63,14 @@ export class ZeppTasksSideService {
         }));
         return ctx.response({ data: { result: true, timestamp } });
       }
+      if(request.action === "clear_log") {
+        // Clear both phone debug logs
+        settings.settingsStorage.setItem("debug_log", "");
+        settings.settingsStorage.setItem("phone_debug_log", "");
+        this.caldavProxy.debugLog = [];
+        console.log("Debug logs cleared");
+        return ctx.response({ data: { result: true } });
+      }
       return;
     }
 

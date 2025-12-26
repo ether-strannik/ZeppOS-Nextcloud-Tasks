@@ -1,5 +1,5 @@
 import { ConfiguredListScreen } from "../ConfiguredListScreen";
-import { readLog, clearLog, syncLogToPhone } from "../Utils";
+import { readLog, clearLog, clearAllLogs, syncLogToPhone } from "../Utils";
 
 const { config, t, tasksProvider } = getApp()._options.globalData
 
@@ -139,8 +139,12 @@ class SettingsScreen extends ConfiguredListScreen {
         text: t("Clear debug log"),
         icon: "icon_s/delete.png",
         callback: () => {
-          clearLog();
-          hmUI.showToast({ text: t("Log cleared") });
+          clearLog();  // Clear watch log immediately
+          clearAllLogs().then(() => {
+            hmUI.showToast({ text: t("All logs cleared") });
+          }).catch(() => {
+            hmUI.showToast({ text: t("Watch log cleared") });
+          });
         }
       });
     }

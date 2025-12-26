@@ -86,6 +86,17 @@ export function clearLog() {
   } catch(e) {}
 }
 
+export function clearAllLogs() {
+  // Clear watch log
+  clearLog();
+
+  // Clear phone log
+  return messageBuilder.request({
+    package: "debug_log",
+    action: "clear_log"
+  }, { timeout: 3000 }).catch(() => {});
+}
+
 export function syncLogToPhone() {
   const logContent = readLog();
   if (!logContent || logContent.startsWith("(")) {
