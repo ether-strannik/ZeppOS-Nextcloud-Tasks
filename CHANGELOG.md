@@ -24,9 +24,15 @@
 - Edit task title
 - Edit task description/notes
 - Edit task priority (0-9)
+- **Edit due date** with visual calendar and numeric keypad time picker
 - Add subtasks (creates RELATED-TO link)
 - Add current GPS location
 - Clear location
+
+#### Date/Time Picker Components
+- **CalendarPicker**: Visual calendar grid with month navigation, today highlight, weekend colors
+- **TimePicker**: Numeric keypad style time input (like Android time picker)
+- **DateTimePicker**: Combined date→time selection flow
 
 #### Debug System
 - File-based debug logger on watch (`log`, `flushLog`, `readLog`, `clearLog`)
