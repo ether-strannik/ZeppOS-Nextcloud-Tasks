@@ -291,6 +291,52 @@ export class CalDAVTask {
   }
 
   /**
+   * Set task due date
+   * @param {Date|null} date - Due date or null to clear
+   */
+  setDueDate(date) {
+    const vtodo = this.rawData?.VCALENDAR?.VTODO;
+    if (!vtodo) {
+      console.log("setDueDate: rawData not loaded");
+      return Promise.reject(new Error("Task data not loaded"));
+    }
+
+    console.log("setDueDate: updating to", date);
+
+    if (date) {
+      this.dueDate = date;
+      // Format as iCalendar datetime: YYYYMMDDTHHMMSS
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, "0");
+      const d = String(date.getDate()).padStart(2, "0");
+      const hh = String(date.getHours()).padStart(2, "0");
+      const mm = String(date.getMinutes()).padStart(2, "0");
+      const ss = String(date.getSeconds()).padStart(2, "0");
+      vtodo.DUE = `${y}${m}${d}T${hh}${mm}${ss}`;
+    } else {
+      this.dueDate = null;
+      delete vtodo.DUE;
+    }
+
+    vtodo["LAST-MODIFIED"] = this.getCurrentTimeString();
+
+    return this._handler.messageBuilder.request({
+      package: "caldav_proxy",
+      action: "replace_task",
+      id: this.id,
+      rawData: this.rawData,
+      etag: this.etag,
+    }, {timeout: 8000}).then((resp) => {
+      console.log("setDueDate: response", JSON.stringify(resp));
+      this.etag = "";
+      return resp;
+    }).catch((e) => {
+      console.log("setDueDate: error", e);
+      throw e;
+    });
+  }
+
+  /**
    * Set task location (GEO coordinates and optional LOCATION text)
    * @param {number} lat - Latitude
    * @param {number} lon - Longitude

@@ -1,5 +1,6 @@
 import {ListScreen} from "../../lib/mmk/ListScreen";
 import {ScreenBoard} from "../../lib/mmk/ScreenBoard";
+import {DateTimePicker} from "../../lib/mmk/DateTimePicker";
 import {createSpinner, log, flushLog} from "../Utils";
 
 const { t, tasksProvider } = getApp()._options.globalData
@@ -65,6 +66,27 @@ class TaskEditScreen extends ListScreen {
         icon: "icon_s/edit.png",
         callback: () => this.showPriorityEditor()
       });
+    }
+
+    // Due Date section (CalDAV only - tasks with setDueDate)
+    if (typeof this.task.setDueDate === 'function') {
+      this.offset(16);
+      this.headline(t("Due Date"));
+      const dueDateText = this.task.dueDate
+        ? this.formatDateTime(this.task.dueDate)
+        : t("Not set");
+      this.dueDateRow = this.row({
+        text: dueDateText,
+        icon: "icon_s/edit.png",
+        callback: () => this.showDueDatePicker()
+      });
+      if (this.task.dueDate) {
+        this.row({
+          text: t("Clear due date"),
+          icon: "icon_s/delete.png",
+          callback: () => this.clearDueDate()
+        });
+      }
     }
 
     // Location section (CalDAV only - tasks with setLocation)
@@ -164,6 +186,81 @@ class TaskEditScreen extends ListScreen {
     if (priority === 5) return t("Medium");
     if (priority >= 6 && priority <= 9) return t("Low");
     return t("None");
+  }
+
+  /**
+   * Format date/time for display
+   */
+  formatDateTime(date) {
+    if (!date) return "";
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    const hh = String(date.getHours()).padStart(2, "0");
+    const mm = String(date.getMinutes()).padStart(2, "0");
+    return `${y}-${m}-${d} ${hh}:${mm}`;
+  }
+
+  showDueDatePicker() {
+    // Hide main list
+    hmUI.setLayerScrolling(false);
+    hmApp.setLayerY(0);
+
+    this.dateTimePicker = new DateTimePicker({
+      initialDate: this.task.dueDate || new Date(),
+      showTime: true,
+      onConfirm: (date) => {
+        this.dateTimePicker = null;
+        hmUI.setLayerScrolling(true);
+        this.saveDueDate(date);
+      },
+      onCancel: () => {
+        this.dateTimePicker = null;
+        hmUI.setLayerScrolling(true);
+      }
+    });
+    this.dateTimePicker.start();
+  }
+
+  saveDueDate(date) {
+    if (this.isSaving) return;
+
+    this.isSaving = true;
+    this.dueDateRow.setText(t("Saving…"));
+    createSpinner();
+
+    this.task.setDueDate(date).then((resp) => {
+      if (resp && resp.error) {
+        this.isSaving = false;
+        this.dueDateRow.setText(this.formatDateTime(date));
+        hmUI.showToast({ text: resp.error });
+        return;
+      }
+      hmApp.goBack();
+    }).catch((e) => {
+      this.isSaving = false;
+      this.dueDateRow.setText(this.task.dueDate ? this.formatDateTime(this.task.dueDate) : t("Not set"));
+      hmUI.showToast({ text: e.message || t("Failed to save") });
+    });
+  }
+
+  clearDueDate() {
+    if (this.isSaving) return;
+
+    this.isSaving = true;
+    createSpinner();
+
+    this.task.setDueDate(null).then((resp) => {
+      if (resp && resp.error) {
+        this.isSaving = false;
+        hmUI.showToast({ text: resp.error });
+        return;
+      }
+      hmApp.goBack();
+    }).catch((e) => {
+      this.isSaving = false;
+      hmUI.showToast({ text: e.message || t("Failed to clear") });
+    });
   }
 
   showTitleEditor() {
