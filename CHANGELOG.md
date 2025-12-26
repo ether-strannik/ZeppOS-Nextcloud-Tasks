@@ -75,6 +75,7 @@
 - Revised task row display with notes indicator icon
 - Settings screen reorganized with Debug section
 - Phone app settings: replaced About tab with Debug tab
+- **Settings order**: Task lists now first, About moved to bottom
 
 ### Removed
 - **Microsoft To Do support**: Removed MicrosoftHandler, MicrosoftAuth, and related UI
