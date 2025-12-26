@@ -13,12 +13,3 @@ selenium-debug.log
 *.ntvs*
 *.njsproj
 *.sln
-.claude/
-
-# Additional (optional)
-*.log
-.env
-.env.local
-build/
-*.swp
-*~

@@ -1,7 +1,7 @@
 import {ConfiguredListScreen} from "../ConfiguredListScreen";
 import {ScreenBoard} from "../../lib/mmk/ScreenBoard";
 import {DateTimePicker} from "../../lib/mmk/DateTimePicker";
-import {createSpinner, request} from "../Utils";
+import {createSpinner, request, log, flushLog} from "../Utils";
 
 const { t } = getApp()._options.globalData
 
@@ -13,8 +13,10 @@ class AddEventScreen extends ConfiguredListScreen {
     this.title = "";
     this.startDate = null;
     this.endDate = null;
-    this.location = "";
+    this.lat = null;
+    this.lon = null;
     this.description = "";
+    this.isCapturingGPS = false;
 
     // Calendar selection
     this.calendars = [];
@@ -49,6 +51,23 @@ class AddEventScreen extends ConfiguredListScreen {
       callback: () => this.showEndDatePicker()
     });
 
+    // Location (GPS capture)
+    const locationText = this.lat !== null && this.lon !== null
+      ? `${this.lat.toFixed(6)}, ${this.lon.toFixed(6)}`
+      : t("(none)");
+    this.locationRow = this.row({
+      text: t("Location: ") + locationText,
+      icon: "icon_s/location.png",
+      callback: () => this.captureGPSLocation()
+    });
+
+    // Description
+    this.row({
+      text: t("Notes: ") + (this.description ? this.description.substring(0, 20) + (this.description.length > 20 ? "..." : "") : t("(none)")),
+      icon: "icon_s/edit.png",
+      callback: () => this.showDescriptionEditor()
+    });
+
     // Calendar selection
     this.offset(16);
     this.calendarRow = this.row({
@@ -77,6 +96,17 @@ class AddEventScreen extends ConfiguredListScreen {
       this.rebuild();
     };
     this.titleBoard.visible = false;
+
+    // Setup ScreenBoard for description
+    this.descriptionBoard = new ScreenBoard();
+    this.descriptionBoard.title = t("Notes");
+    this.descriptionBoard.value = this.description;
+    this.descriptionBoard.confirmButtonText = t("OK");
+    this.descriptionBoard.onConfirm = (v) => {
+      this.description = v;
+      this.rebuild();
+    };
+    this.descriptionBoard.visible = false;
   }
 
   loadCalendars() {
@@ -115,6 +145,9 @@ class AddEventScreen extends ConfiguredListScreen {
         title: this.title,
         startDate: this.startDate ? this.startDate.getTime() : null,
         endDate: this.endDate ? this.endDate.getTime() : null,
+        lat: this.lat,
+        lon: this.lon,
+        description: this.description,
         selectedCalendarId: this.selectedCalendarId,
         selectedCalendarTitle: this.selectedCalendarTitle
       })
@@ -145,6 +178,141 @@ class AddEventScreen extends ConfiguredListScreen {
 
   showTitleEditor() {
     this.titleBoard.visible = true;
+    hmApp.setLayerY(0);
+    hmUI.setLayerScrolling(false);
+  }
+
+  captureGPSLocation() {
+    if (this.isCapturingGPS) return;
+
+    this.isCapturingGPS = true;
+    this.locationRow.setText(t("Getting GPS…"));
+
+    // Try hmSensor API (available on most devices)
+    let geolocation = null;
+
+    log("=== GPS Capture Start (AddEvent) ===");
+
+    try {
+      if (typeof hmSensor !== 'undefined' && hmSensor.id) {
+        // Try GEOLOCATION first
+        if (hmSensor.id.GEOLOCATION !== undefined) {
+          geolocation = hmSensor.createSensor(hmSensor.id.GEOLOCATION);
+          log("Created GEOLOCATION sensor");
+        }
+        // Some devices might use GPS instead
+        else if (hmSensor.id.GPS !== undefined) {
+          geolocation = hmSensor.createSensor(hmSensor.id.GPS);
+          log("Created GPS sensor");
+        }
+      }
+    } catch(e) {
+      log("Sensor creation error:", e.message || e);
+    }
+    flushLog();
+
+    if (!geolocation) {
+      this.isCapturingGPS = false;
+      this.locationRow.setText(t("Location: ") + t("(none)"));
+      hmUI.showToast({ text: t("GPS not available") });
+      return;
+    }
+
+    let timeoutId = null;
+    let acquired = false;
+
+    const onGPSData = () => {
+      if (acquired) return;
+
+      let lat = geolocation.latitude;
+      let lon = geolocation.longitude;
+
+      // Convert DMS (Degrees, Minutes, Seconds) to decimal degrees
+      function dmsToDecimal(dms) {
+        if (!dms || typeof dms !== 'object') return dms;
+        if (dms.degrees === undefined) return dms;
+
+        let decimal = Math.abs(dms.degrees) + (dms.minutes || 0) / 60 + (dms.seconds || 0) / 3600;
+
+        // Handle direction: S and W are negative
+        if (dms.direction === 'S' || dms.direction === 'W') {
+          decimal = -decimal;
+        }
+        return decimal;
+      }
+
+      // If lat/lon are objects (DMS format), convert to decimal
+      if (lat && typeof lat === 'object') {
+        lat = dmsToDecimal(lat);
+      }
+      if (lon && typeof lon === 'object') {
+        lon = dmsToDecimal(lon);
+      }
+
+      // Some APIs might use getLatitude/getLongitude methods
+      if ((lat === undefined || lat === null || typeof lat === 'object') && typeof geolocation.getLatitude === 'function') {
+        lat = geolocation.getLatitude();
+        lon = geolocation.getLongitude();
+      }
+
+      log("GPS data: lat=" + lat + " lon=" + lon);
+      flushLog();
+
+      // Check if we have valid coordinates
+      if (lat !== undefined && lon !== undefined && lat !== null && lon !== null && (lat !== 0 || lon !== 0)) {
+        acquired = true;
+        if (timeoutId) clearTimeout(timeoutId);
+
+        try {
+          geolocation.stop();
+        } catch(e) {}
+
+        this.isCapturingGPS = false;
+        this.lat = lat;
+        this.lon = lon;
+        this.rebuild();
+      }
+    };
+
+    try {
+      // Start GPS
+      geolocation.start();
+
+      // Register callback
+      if (typeof geolocation.onChange === 'function') {
+        geolocation.onChange(onGPSData);
+      } else if ('onGPS' in geolocation) {
+        geolocation.onGPS = onGPSData;
+      }
+
+      // Check immediately in case data is already available
+      setTimeout(() => onGPSData(), 500);
+
+      // Timeout after 30 seconds
+      timeoutId = setTimeout(() => {
+        if (!acquired) {
+          try {
+            geolocation.stop();
+          } catch(e) {}
+          this.isCapturingGPS = false;
+          const locationText = this.lat !== null && this.lon !== null
+            ? `${this.lat.toFixed(6)}, ${this.lon.toFixed(6)}`
+            : t("(none)");
+          this.locationRow.setText(t("Location: ") + locationText);
+          hmUI.showToast({ text: t("GPS timeout") });
+        }
+      }, 30000);
+
+    } catch(e) {
+      log("GPS start error:", e.message || e);
+      this.isCapturingGPS = false;
+      this.locationRow.setText(t("Location: ") + t("(none)"));
+      hmUI.showToast({ text: t("GPS error: ") + e.message });
+    }
+  }
+
+  showDescriptionEditor() {
+    this.descriptionBoard.visible = true;
     hmApp.setLayerY(0);
     hmUI.setLayerScrolling(false);
   }
@@ -234,11 +402,16 @@ class AddEventScreen extends ConfiguredListScreen {
 
     const hideSpinner = createSpinner();
 
+    // Format location as coordinates string if GPS was captured
+    const locationStr = this.lat !== null && this.lon !== null
+      ? `${this.lat.toFixed(6)}, ${this.lon.toFixed(6)}`
+      : null;
+
     const event = {
       title: this.title.trim(),
       dtstart: this.formatDateTimeForCalDAV(this.startDate),
       dtend: this.endDate ? this.formatDateTimeForCalDAV(this.endDate) : null,
-      location: this.location || null,
+      location: locationStr,
       description: this.description || null
     };
 
@@ -276,7 +449,8 @@ Page({
         screen.title = state.title || "";
         screen.startDate = state.startDate ? new Date(state.startDate) : null;
         screen.endDate = state.endDate ? new Date(state.endDate) : null;
-        screen.location = state.location || "";
+        screen.lat = state.lat !== undefined ? state.lat : null;
+        screen.lon = state.lon !== undefined ? state.lon : null;
         screen.description = state.description || "";
         screen.selectedCalendarId = state.selectedCalendarId || null;
         screen.selectedCalendarTitle = state.selectedCalendarTitle || "";

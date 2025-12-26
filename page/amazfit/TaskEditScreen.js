@@ -739,7 +739,8 @@ class TaskEditScreen extends ListScreen {
         title: this.task.title,
         startDate: this.task.startDate ? this.task.startDate.getTime() : null,
         endDate: this.task.dueDate ? this.task.dueDate.getTime() : null,
-        location: this.task.location || "",
+        lat: this.task.geo ? this.task.geo.lat : null,
+        lon: this.task.geo ? this.task.geo.lon : null,
         description: this.task.description || ""
       })
     });
