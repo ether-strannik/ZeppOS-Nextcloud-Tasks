@@ -33,6 +33,12 @@ export class LogExecutor {
                 return this._log_set_important(record);
             case "set_priority":
                 return this._log_set_priority(record);
+            case "set_alarm":
+                return this._log_set_alarm(record);
+            case "set_alarm_absolute":
+                return this._log_set_alarm_absolute(record);
+            case "set_categories":
+                return this._log_set_categories(record);
             case "set_location":
                 return this._log_set_location(record);
             case "set_checklist_checked":
@@ -154,6 +160,64 @@ export class LogExecutor {
         const task = taskList.getTask(id);
         if (task && typeof task.setPriority === 'function') {
             return task.setPriority(value).then(() => {
+                return this.start();
+            }).catch((e) => {
+                console.log(e);
+                return this.start();
+            });
+        }
+        return this.start();
+    }
+
+    _log_set_alarm(record) {
+        let {id, value} = record;
+        if(this.idOverride[id]) id = this.idOverride[id];
+        const taskList = this._getTaskList(record);
+
+        // Extract minutes from value object or use directly
+        const minutes = value && typeof value === 'object' ? value.minutes : value;
+        console.log(`LOG_EXEC: Will set task ${id} alarm to ${minutes} minutes`);
+        const task = taskList.getTask(id);
+        if (task && typeof task.setAlarm === 'function') {
+            return task.setAlarm(minutes).then(() => {
+                return this.start();
+            }).catch((e) => {
+                console.log(e);
+                return this.start();
+            });
+        }
+        return this.start();
+    }
+
+    _log_set_alarm_absolute(record) {
+        let {id, value} = record;
+        if(this.idOverride[id]) id = this.idOverride[id];
+        const taskList = this._getTaskList(record);
+
+        // Extract date from value object
+        const date = value && typeof value === 'object' && value.date ? new Date(value.date) : null;
+        console.log(`LOG_EXEC: Will set task ${id} absolute alarm to ${date}`);
+        const task = taskList.getTask(id);
+        if (task && typeof task.setAlarmAbsolute === 'function') {
+            return task.setAlarmAbsolute(date).then(() => {
+                return this.start();
+            }).catch((e) => {
+                console.log(e);
+                return this.start();
+            });
+        }
+        return this.start();
+    }
+
+    _log_set_categories(record) {
+        let {id, value} = record;
+        if(this.idOverride[id]) id = this.idOverride[id];
+        const taskList = this._getTaskList(record);
+
+        console.log(`LOG_EXEC: Will set task ${id} categories to ${value}`);
+        const task = taskList.getTask(id);
+        if (task && typeof task.setCategories === 'function') {
+            return task.setCategories(value).then(() => {
                 return this.start();
             }).catch((e) => {
                 console.log(e);

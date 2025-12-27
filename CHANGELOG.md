@@ -27,7 +27,10 @@
 - **Edit start date** with visual calendar and numeric keypad time picker
 - **Edit due date** with visual calendar and numeric keypad time picker
 - **Date validation**: Prevents setting start date after due date (and vice versa)
-- **VALARM reminders**: Set task reminders with preset options (5min, 10min, 15min, 30min, 1h, 2h, 1d, 2d before)
+- **VALARM reminders**: Tasks.org compatible reminder system
+  - "Remind me in" - set DUE date to NOW + duration with alarm at due time
+  - "Before due" presets - 5min, 10min, 15min, 30min, 1h, 2h, 1d before
+  - Uses TRIGGER;RELATED=END for DUE-relative alarms (Tasks.org compatible)
 - Add subtasks (creates RELATED-TO link)
 - Add current GPS location
 - Clear location
@@ -157,5 +160,5 @@ Watch ←BLE→ Phone ←HTTPS→ Vercel Proxy ←CalDAV→ Nextcloud
 | GEO         | ✅ | GPS coordinates |
 | LOCATION    | ✅ | Location text |
 | CATEGORIES  | ✅ | Multi-select tags with [#tag] display |
-| VALARM      | ✅ | Reminder presets (5min to 2 days before) |
+| VALARM      | ✅ | TRIGGER;RELATED=END for DUE-relative reminders |
 | RRULE       | ❌ | Not implemented |

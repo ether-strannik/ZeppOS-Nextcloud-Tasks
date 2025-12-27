@@ -1,6 +1,7 @@
 import {ListScreen} from "../../lib/mmk/ListScreen";
 import {ScreenBoard} from "../../lib/mmk/ScreenBoard";
 import {DateTimePicker} from "../../lib/mmk/DateTimePicker";
+import {TimePicker} from "../../lib/mmk/TimePicker";
 import {PriorityPicker} from "../../lib/mmk/PriorityPicker";
 import {AppGesture} from "../../lib/mmk/AppGesture";
 import {createSpinner, log, flushLog, request} from "../Utils";
@@ -151,14 +152,19 @@ class TaskEditScreen extends ListScreen {
 
       this.offset(16);
       this.headline(t("Reminder"));
+
+      // Show current alarm status
       const alarmText = this.task.alarm !== null
-        ? (this.task.formatAlarm ? this.task.formatAlarm() : this.task.alarm + " min")
+        ? (this.task.formatAlarm ? this.task.formatAlarm() : t("Set"))
         : t("Not set");
-      this.alarmRow = this.row({
+
+      this.row({
         text: alarmText,
         icon: "icon_s/edit.png",
         callback: () => this.showReminderPicker()
       });
+
+      // Clear option if alarm is set
       if (this.task.alarm !== null) {
         this.row({
           text: t("Clear reminder"),
@@ -421,7 +427,7 @@ class TaskEditScreen extends ListScreen {
   }
 
   /**
-   * Open reminder picker screen
+   * Open reminder picker screen with all options
    */
   showReminderPicker() {
     hmApp.gotoPage({
@@ -429,8 +435,88 @@ class TaskEditScreen extends ListScreen {
       param: JSON.stringify({
         listId: this.listId,
         taskId: this.taskId,
-        currentAlarm: this.task.alarm
+        currentAlarm: this.task.alarm,
+        startDate: this.task.startDate ? this.task.startDate.getTime() : null,
+        dueDate: this.task.dueDate ? this.task.dueDate.getTime() : null
       })
+    });
+  }
+
+  /**
+   * Open time picker (remind me in X hours/minutes from now)
+   */
+  showDurationPicker() {
+    this.durationPicker = new TimePicker({
+      initialHour: 0,
+      initialMinute: 30,
+      onSelect: () => {},
+      onConfirm: (hours, minutes) => {
+        this.hideDurationPicker();
+        // Calculate absolute time: NOW + duration
+        const totalMinutes = hours * 60 + minutes;
+        const reminderDate = new Date(Date.now() + totalMinutes * 60 * 1000);
+        this.saveAbsoluteAlarm(reminderDate);
+      }
+    });
+    this.durationPicker.render();
+    hmApp.setLayerY(0);
+    hmUI.setLayerScrolling(false);
+  }
+
+  hideDurationPicker() {
+    if (this.durationPicker) {
+      this.durationPicker.destroy();
+      this.durationPicker = null;
+      hmUI.setLayerScrolling(true);
+    }
+  }
+
+  /**
+   * Open date/time picker for absolute reminder time
+   */
+  showAbsoluteReminderPicker() {
+    // Default to tomorrow same time
+    const defaultDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    this.reminderDateTimePicker = new DateTimePicker({
+      initialDate: defaultDate,
+      onSelect: () => {},
+      onConfirm: (date) => {
+        this.hideReminderDateTimePicker();
+        this.saveAbsoluteAlarm(date);
+      },
+      onCancel: () => this.hideReminderDateTimePicker()
+    });
+    this.reminderDateTimePicker.start();
+    hmUI.setLayerScrolling(false);
+  }
+
+  hideReminderDateTimePicker() {
+    if (this.reminderDateTimePicker) {
+      this.reminderDateTimePicker = null;
+      hmUI.setLayerScrolling(true);
+    }
+  }
+
+  /**
+   * Save absolute alarm time
+   */
+  saveAbsoluteAlarm(date) {
+    if (this.isSaving) return;
+
+    this.isSaving = true;
+    createSpinner();
+
+    this.task.setAlarmAbsolute(date).then((resp) => {
+      if (resp && resp.error) {
+        this.isSaving = false;
+        hmUI.showToast({ text: resp.error });
+        return;
+      }
+      this.reloadEditScreen();
+    }).catch((e) => {
+      this.isSaving = false;
+      hmUI.showToast({ text: e.message || t("Failed to save") });
     });
   }
 
@@ -444,12 +530,27 @@ class TaskEditScreen extends ListScreen {
     // Clear the selection
     config.set("_selectedReminder", null);
 
-    // Save the alarm
+    // Save the alarm based on type
     this.isSaving = true;
     if (this.alarmRow) this.alarmRow.setText(t("Saving…"));
     createSpinner();
 
-    this.task.setAlarm(selection.minutes).then((resp) => {
+    let savePromise;
+    if (selection.type === 'remind_in') {
+      // Remind me in: Set DUE date AND VALARM in one request
+      const newDueDate = new Date(selection.dueDate);
+      if (typeof this.task.setDueDateWithAlarm === 'function') {
+        savePromise = this.task.setDueDateWithAlarm(newDueDate, selection.minutes);
+      } else {
+        // Fallback for non-CalDAV tasks: just set due date
+        savePromise = this.task.setDueDate ? this.task.setDueDate(newDueDate) : Promise.resolve();
+      }
+    } else {
+      // Relative: minutes before due (default)
+      savePromise = this.task.setAlarm(selection.minutes);
+    }
+
+    savePromise.then((resp) => {
       if (resp && resp.error) {
         this.isSaving = false;
         if (this.alarmRow) {
@@ -548,6 +649,14 @@ class TaskEditScreen extends ListScreen {
     }
     if (this.priorityPicker) {
       this.hidePriorityPicker();
+      return true;
+    }
+    if (this.durationPicker) {
+      this.hideDurationPicker();
+      return true;
+    }
+    if (this.reminderDateTimePicker) {
+      this.hideReminderDateTimePicker();
       return true;
     }
     if (this.dateTimePicker) {

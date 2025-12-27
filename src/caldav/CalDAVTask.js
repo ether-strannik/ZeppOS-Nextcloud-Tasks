@@ -132,9 +132,10 @@ export class CalDAVTask {
   }
 
   /**
-   * Parse VALARM component to get reminder minutes before due/start
-   * TRIGGER format: -PT15M (15 min before), -P1D (1 day before), -PT1H30M (1.5 hours before)
-   * Returns: minutes before (positive number) or null if no alarm
+   * Parse VALARM component to get reminder info
+   * Relative TRIGGER format: -PT15M (15 min before), -P1D (1 day before)
+   * Absolute TRIGGER format: 20231225T100000Z or with VALUE=DATE-TIME parameter
+   * Returns: {type: 'relative', minutes: N} or {type: 'absolute', date: Date} or null
    */
   _parseAlarm(valarm) {
     if (!valarm) return null;
@@ -142,20 +143,50 @@ export class CalDAVTask {
     try {
       // VALARM can be an object or array of objects
       const alarm = Array.isArray(valarm) ? valarm[0] : valarm;
-      if (!alarm || !alarm.TRIGGER) return null;
+      if (!alarm) return null;
 
-      const trigger = alarm.TRIGGER.toString();
+      // Find TRIGGER - can be plain TRIGGER or parameterized like TRIGGER;VALUE=DATE-TIME
+      let trigger = null;
+      for (const key of Object.keys(alarm)) {
+        if (key === 'TRIGGER' || key.startsWith('TRIGGER;')) {
+          trigger = alarm[key];
+          break;
+        }
+      }
 
-      // Parse duration format: -PT15M, -P1D, -PT1H30M, etc.
-      // Negative means before the event/due date
-      const match = trigger.match(/^-?P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/);
-      if (!match) return null;
+      if (!trigger) return null;
 
-      const days = parseInt(match[1], 10) || 0;
-      const hours = parseInt(match[2], 10) || 0;
-      const minutes = parseInt(match[3], 10) || 0;
+      // Check if TRIGGER is an object with value (e.g., {VALUE: "DATE-TIME", value: "..."})
+      if (typeof trigger === 'object' && trigger.value) {
+        trigger = trigger.value.toString();
+      } else {
+        trigger = trigger.toString();
+      }
 
-      return days * 24 * 60 + hours * 60 + minutes;
+      // Try to parse as duration format: -PT15M, -P1D, -PT1H30M, etc.
+      const durationMatch = trigger.match(/^-?P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/);
+      if (durationMatch) {
+        const days = parseInt(durationMatch[1], 10) || 0;
+        const hours = parseInt(durationMatch[2], 10) || 0;
+        const minutes = parseInt(durationMatch[3], 10) || 0;
+        return { type: 'relative', minutes: days * 24 * 60 + hours * 60 + minutes };
+      }
+
+      // Try to parse as absolute date-time: 20231225T100000Z or 20231225T100000
+      const dateMatch = trigger.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z?$/);
+      if (dateMatch) {
+        const date = new Date(Date.UTC(
+          parseInt(dateMatch[1], 10),
+          parseInt(dateMatch[2], 10) - 1,
+          parseInt(dateMatch[3], 10),
+          parseInt(dateMatch[4], 10),
+          parseInt(dateMatch[5], 10),
+          parseInt(dateMatch[6], 10)
+        ));
+        return { type: 'absolute', date: date };
+      }
+
+      console.log("Unknown TRIGGER format:", trigger);
     } catch (e) {
       console.log("Failed to parse VALARM:", valarm, e);
     }
@@ -453,6 +484,87 @@ export class CalDAVTask {
   }
 
   /**
+   * Set task due date AND alarm in one request (for "remind me in" feature)
+   * @param {Date} date - Due date
+   * @param {number} alarmMinutes - Minutes before due for alarm (0 = at due time)
+   */
+  setDueDateWithAlarm(date, alarmMinutes = 0) {
+    const vtodo = this.rawData?.VCALENDAR?.VTODO;
+    if (!vtodo) {
+      console.log("setDueDateWithAlarm: rawData not loaded");
+      return Promise.reject(new Error("Task data not loaded"));
+    }
+
+    console.log("setDueDateWithAlarm: due=", date, "alarm=", alarmMinutes, "min before");
+
+    // Remove any existing DUE variants
+    for (const key of Object.keys(vtodo)) {
+      if (key === "DUE" || key.startsWith("DUE;")) {
+        delete vtodo[key];
+      }
+    }
+
+    // Remove any existing DTSTART variants (DUE must be after DTSTART, so clear it)
+    for (const key of Object.keys(vtodo)) {
+      if (key === "DTSTART" || key.startsWith("DTSTART;")) {
+        delete vtodo[key];
+      }
+    }
+    this.startDate = null;
+
+    // Set DUE date
+    this.dueDate = date;
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    const hh = String(date.getHours()).padStart(2, "0");
+    const mm = String(date.getMinutes()).padStart(2, "0");
+    const ss = String(date.getSeconds()).padStart(2, "0");
+    vtodo.DUE = `${y}${m}${d}T${hh}${mm}${ss}`;
+
+    // Set VALARM (relative to DUE)
+    this.alarm = { type: 'relative', minutes: alarmMinutes };
+    let trigger = "-P";
+    const days = Math.floor(alarmMinutes / (24 * 60));
+    const remainingMinutes = alarmMinutes % (24 * 60);
+    const hours = Math.floor(remainingMinutes / 60);
+    const mins = remainingMinutes % 60;
+
+    if (days > 0) {
+      trigger += days + "D";
+    }
+    if (hours > 0 || mins > 0 || days === 0) {
+      trigger += "T";
+      if (hours > 0) trigger += hours + "H";
+      if (mins > 0 || (hours === 0 && days === 0)) trigger += mins + "M";
+    }
+
+    // Use RELATED=END to make alarm relative to DUE date (not START)
+    vtodo.VALARM = {
+      ACTION: "DISPLAY",
+      "TRIGGER;RELATED=END": trigger,
+      DESCRIPTION: this.title || "Task reminder"
+    };
+
+    vtodo["LAST-MODIFIED"] = this.getCurrentTimeString();
+
+    return this._handler.messageBuilder.request({
+      package: "caldav_proxy",
+      action: "replace_task",
+      id: this.id,
+      rawData: this.rawData,
+      etag: this.etag,
+    }, {timeout: 8000}).then((resp) => {
+      console.log("setDueDateWithAlarm: response", JSON.stringify(resp));
+      this.etag = "";
+      return resp;
+    }).catch((e) => {
+      console.log("setDueDateWithAlarm: error", e);
+      throw e;
+    });
+  }
+
+  /**
    * Set task location (GEO coordinates and optional LOCATION text)
    * @param {number} lat - Latitude
    * @param {number} lon - Longitude
@@ -542,7 +654,7 @@ export class CalDAVTask {
   }
 
   /**
-   * Set task alarm/reminder
+   * Set task alarm/reminder (relative to due/start date)
    * @param {number|null} minutes - Minutes before due date (null to clear)
    */
   setAlarm(minutes) {
@@ -555,7 +667,7 @@ export class CalDAVTask {
     console.log("setAlarm: updating to", minutes, "minutes before");
 
     if (minutes !== null && minutes >= 0) {
-      this.alarm = minutes;
+      this.alarm = { type: 'relative', minutes: minutes };
       // Build VALARM component
       // Convert minutes to ISO 8601 duration format
       let trigger = "-P";
@@ -573,9 +685,10 @@ export class CalDAVTask {
         if (mins > 0 || (hours === 0 && days === 0)) trigger += mins + "M";
       }
 
+      // Use RELATED=END to make alarm relative to DUE date (not START)
       vtodo.VALARM = {
         ACTION: "DISPLAY",
-        TRIGGER: trigger,
+        "TRIGGER;RELATED=END": trigger,
         DESCRIPTION: this.title || "Task reminder"
       };
     } else {
@@ -602,19 +715,120 @@ export class CalDAVTask {
   }
 
   /**
-   * Format alarm minutes to human-readable string
-   * e.g., 15 -> "15 min", 60 -> "1 hour", 1440 -> "1 day"
+   * Set task alarm/reminder to absolute date/time
+   * @param {Date|null} date - Absolute date/time for reminder (null to clear)
+   */
+  setAlarmAbsolute(date) {
+    const vtodo = this.rawData?.VCALENDAR?.VTODO;
+    if (!vtodo) {
+      console.log("setAlarmAbsolute: rawData not loaded");
+      return Promise.reject(new Error("Task data not loaded"));
+    }
+
+    console.log("setAlarmAbsolute: updating to", date);
+
+    if (date !== null) {
+      this.alarm = { type: 'absolute', date: date };
+      // Build VALARM component with absolute trigger
+      // Format: YYYYMMDDTHHMMSSZ (UTC)
+      // Use parameterized property key for js2ics compatibility
+      const pad = (n) => n.toString().padStart(2, '0');
+      const trigger = date.getUTCFullYear().toString() +
+        pad(date.getUTCMonth() + 1) +
+        pad(date.getUTCDate()) + 'T' +
+        pad(date.getUTCHours()) +
+        pad(date.getUTCMinutes()) +
+        pad(date.getUTCSeconds()) + 'Z';
+
+      vtodo.VALARM = {
+        ACTION: "DISPLAY",
+        "TRIGGER;VALUE=DATE-TIME": trigger,
+        DESCRIPTION: this.title || "Task reminder"
+      };
+    } else {
+      this.alarm = null;
+      delete vtodo.VALARM;
+    }
+
+    vtodo["LAST-MODIFIED"] = this.getCurrentTimeString();
+
+    return this._handler.messageBuilder.request({
+      package: "caldav_proxy",
+      action: "replace_task",
+      id: this.id,
+      rawData: this.rawData,
+      etag: this.etag,
+    }, {timeout: 8000}).then((resp) => {
+      console.log("setAlarmAbsolute: response", JSON.stringify(resp));
+      this.etag = "";
+      return resp;
+    }).catch((e) => {
+      console.log("setAlarmAbsolute: error", e);
+      throw e;
+    });
+  }
+
+  /**
+   * Format alarm to human-readable string
+   * Relative: 15 -> "15 min before", 60 -> "1 hour before"
+   * Absolute: shows date/time or countdown
    */
   formatAlarm() {
     if (this.alarm === null) return null;
-    if (this.alarm === 0) return "At time";
-    if (this.alarm < 60) return this.alarm + " min";
-    if (this.alarm < 24 * 60) {
-      const hours = this.alarm / 60;
-      return hours === 1 ? "1 hour" : hours + " hours";
+
+    // Handle new object format
+    if (typeof this.alarm === 'object') {
+      if (this.alarm.type === 'relative') {
+        const minutes = this.alarm.minutes;
+        if (minutes === 0) return "At time";
+        if (minutes < 60) return minutes + " min before";
+        if (minutes < 24 * 60) {
+          const hours = minutes / 60;
+          return hours === 1 ? "1 hour before" : hours + " hours before";
+        }
+        const days = minutes / (24 * 60);
+        return days === 1 ? "1 day before" : days + " days before";
+      } else if (this.alarm.type === 'absolute') {
+        const date = this.alarm.date;
+        const now = Date.now();
+        const diff = date.getTime() - now;
+
+        // If in the past, show "Passed"
+        if (diff < 0) return "Passed";
+
+        // If within 24 hours, show countdown
+        const hours = diff / (1000 * 60 * 60);
+        if (hours < 24) {
+          if (hours < 1) {
+            const mins = Math.round(diff / (1000 * 60));
+            return "In " + mins + " min";
+          }
+          return "In " + hours.toFixed(1) + "h";
+        }
+
+        // Show date and time
+        const pad = (n) => n.toString().padStart(2, '0');
+        const month = date.getMonth() + 1;
+        const day = date.getDate();
+        const hour = date.getHours();
+        const minute = date.getMinutes();
+        return pad(month) + "/" + pad(day) + " " + pad(hour) + ":" + pad(minute);
+      }
     }
-    const days = this.alarm / (24 * 60);
-    return days === 1 ? "1 day" : days + " days";
+
+    // Legacy: plain number format (for backward compatibility)
+    if (typeof this.alarm === 'number') {
+      if (this.alarm === 0) return "At time";
+      if (this.alarm < 60) return this.alarm + " min before";
+      if (this.alarm < 24 * 60) {
+        const hours = this.alarm / 60;
+        return hours === 1 ? "1 hour before" : hours + " hours before";
+      }
+      const days = this.alarm / (24 * 60);
+      return days === 1 ? "1 day before" : days + " days before";
+    }
+
+    return null;
   }
 
   delete() {
